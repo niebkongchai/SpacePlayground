@@ -261,6 +261,79 @@
 
     .answer button:disabled { opacity: 0.6; }
 
+    /* ---------- Journey progress: rocket flies from Earth to the trophy ---------- */
+    .track { display: flex; align-items: center; gap: 12px; }
+    .earth, .goal { font-size: 1.8rem; line-height: 1; }
+    .goal.near { animation: goal-pulse 0.7s ease-in-out infinite alternate; }
+    @keyframes goal-pulse {
+      to { transform: scale(1.4); filter: drop-shadow(0 0 14px #ffd166); }
+    }
+    .rail {
+      position: relative;
+      flex: 1;
+      height: 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+    }
+    .fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #4cc9f0, #c77dff, #ffd166);
+      box-shadow: 0 0 14px rgba(199, 125, 255, 0.6);
+      transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .runner {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      font-size: 2rem;
+      line-height: 1;
+      transform: translate(-50%, -55%) rotate(45deg);
+      filter: drop-shadow(0 0 8px rgba(255, 160, 60, 0.8));
+      transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .slots {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 5px;
+      margin-top: 12px;
+    }
+    .slot {
+      min-width: 30px;
+      height: 30px;
+      padding: 0 4px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+    .slot.thai { font-family: "Sarabun", sans-serif; }
+    .slot.got {
+      color: #10122b;
+      font-weight: 700;
+      background: var(--c);
+      border: 1px solid transparent;
+      box-shadow: 0 0 10px var(--c);
+    }
+    .slot.just { animation: slot-pop 0.6s ease-out; }
+    @keyframes slot-pop {
+      0% { transform: scale(0.3); }
+      60% { transform: scale(1.5); }
+      100% { transform: scale(1); }
+    }
+    /* Leave room for the slots under the track */
+    #game.has-slots .char { font-size: min(44vw, 34vh); }
+    #game.has-slots .char.long { font-size: min(28vw, 26vh); }
+
     /* ---------- Winner ---------- */
     .win-banner { display: none; }
     #result.win .win-banner { display: block; }
@@ -398,7 +471,7 @@
       .pill { padding: 6px 12px; font-size: 0.95rem; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .char.pop, .char.celebrate, .char.shake, .trophy { animation: none; }
+      .char.pop, .char.celebrate, .char.shake, .trophy, .goal.near, .slot.just { animation: none; }
     }
   </style>
 </head>
@@ -437,6 +510,17 @@
         </span>
         <button class="sound-btn" id="sound-btn" aria-label="Toggle sound">🔊</button>
         <button class="stop" id="stop-btn">■ Stop</button>
+      </div>
+      <div class="journey">
+        <div class="track">
+          <span class="earth">🌍</span>
+          <div class="rail">
+            <div class="fill" id="journey-fill"></div>
+            <div class="runner">🚀</div>
+          </div>
+          <span class="goal" id="journey-goal">🏆</span>
+        </div>
+        <div class="slots" id="journey-slots"></div>
       </div>
       <div class="stage">
         <div class="char" id="char"></div>
@@ -688,7 +772,7 @@
         // Characters not yet answered correctly; a correct one is removed so it won't come back
         remaining: new Set(MODES[selectedMode].pool),
       };
-      updateProgress();
+      buildJourney();
       $("game-mode").textContent = `${MODES[selectedMode].icon} ${MODES[selectedMode].name}`;
       $("ok-count").textContent = "0";
       $("no-count").textContent = "0";
@@ -707,9 +791,42 @@
       return Math.floor((Date.now() - game.startedAt) / 1000);
     }
 
-    function updateProgress() {
+    // One slot per character when the set is small enough to fit on screen
+    const SLOT_LIMIT = 52;
+
+    function buildJourney() {
+      const mode = MODES[game.mode];
+      const showSlots = mode.pool.length <= SLOT_LIMIT;
+      const slots = $("journey-slots");
+      slots.innerHTML = "";
+      game.slotEls = new Map();
+      $("game").classList.toggle("has-slots", showSlots);
+      if (showSlots) {
+        mode.pool.forEach((v, i) => {
+          const s = document.createElement("span");
+          s.className = "slot" + (mode.thai ? " thai" : "");
+          s.textContent = v;
+          s.style.setProperty("--c", COLORS[i % COLORS.length]);
+          slots.appendChild(s);
+          game.slotEls.set(v, s);
+        });
+      }
+      updateProgress();
+    }
+
+    function updateProgress(justGot) {
       const total = MODES[game.mode].pool.length;
-      $("progress").textContent = `⭐ ${total - game.remaining.size} / ${total}`;
+      const done = total - game.remaining.size;
+      const pct = (done / total) * 100;
+      $("progress").textContent = `⭐ ${done} / ${total}`;
+      $("journey-fill").style.width = pct + "%";
+      document.querySelector(".runner").style.left = pct + "%";
+      $("journey-goal").classList.toggle("near", game.remaining.size === 1);
+      const slot = justGot && game.slotEls.get(justGot);
+      if (slot) {
+        slot.classList.add("got", "just");
+        slot.addEventListener("animationend", () => slot.classList.remove("just"), { once: true });
+      }
     }
 
     function nextChar() {
@@ -748,7 +865,7 @@
       const ok = game.turns.filter(t => t.correct).length;
       $("ok-count").textContent = ok;
       $("no-count").textContent = game.turns.length - ok;
-      updateProgress();
+      updateProgress(correct ? value : null);
 
       busy = true;
       setAnswerButtons(false);
@@ -775,6 +892,7 @@
       busy = false;
       setAnswerButtons(true);
       nextChar();
+      if (correct && game.remaining.size === 1) showCheer("🏁 อีกตัวเดียว! Last one!");
     }
 
     // Every character answered correctly: trophy, fireworks show, fanfare and voice
