@@ -232,6 +232,26 @@
       100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
     }
 
+    .rocket {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      z-index: 11;
+      pointer-events: none;
+      opacity: 0;
+      font-size: clamp(3rem, 10vw, 6rem);
+    }
+    .rocket.fly { animation: rocket-dance 1.8s ease-in-out; }
+    @keyframes rocket-dance {
+      0%   { opacity: 1; transform: translate(-10vw, 10vh) rotate(0deg); }
+      20%  { transform: translate(20vw, -25vh) rotate(-20deg) scale(1.1); }
+      35%  { transform: translate(35vw, -35vh) rotate(25deg); }
+      50%  { transform: translate(50vw, -30vh) rotate(-25deg) scale(1.2); }
+      65%  { transform: translate(62vw, -45vh) rotate(20deg); }
+      85%  { opacity: 1; transform: translate(85vw, -75vh) rotate(-10deg); }
+      100% { opacity: 0; transform: translate(110vw, -110vh) rotate(0deg); }
+    }
+
     .answer button:disabled { opacity: 0.6; }
     .sound-btn {
       padding: 8px 14px;
@@ -417,14 +437,25 @@
 
   <canvas id="fx"></canvas>
   <div class="cheer" id="cheer"></div>
+  <div class="rocket" id="rocket">🚀</div>
 
   <script>
     // ===== Modes =====
     const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
     const UPPER = range(65, 90).map(c => String.fromCharCode(c));
     const LOWER = range(97, 122).map(c => String.fromCharCode(c));
-    // Thai consonants ก (U+0E01) to ฮ (U+0E2E) — 44 letters
-    const THAI = range(0x0E01, 0x0E2E).map(c => String.fromCharCode(c));
+    // The 44 Thai consonants ก – ฮ (ฤ and ฦ are vowels, so they are left out)
+    const THAI = [..."กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ"];
+    // Word for each consonant, used by the voice: ก → "กอ ไก่"
+    const THAI_WORDS = {
+      "ก": "ไก่", "ข": "ไข่", "ฃ": "ขวด", "ค": "ควาย", "ฅ": "คน", "ฆ": "ระฆัง", "ง": "งู",
+      "จ": "จาน", "ฉ": "ฉิ่ง", "ช": "ช้าง", "ซ": "โซ่", "ฌ": "เฌอ", "ญ": "หญิง",
+      "ฎ": "ชฎา", "ฏ": "ปฏัก", "ฐ": "ฐาน", "ฑ": "มณโฑ", "ฒ": "ผู้เฒ่า", "ณ": "เณร",
+      "ด": "เด็ก", "ต": "เต่า", "ถ": "ถุง", "ท": "ทหาร", "ธ": "ธง", "น": "หนู",
+      "บ": "ใบไม้", "ป": "ปลา", "ผ": "ผึ้ง", "ฝ": "ฝา", "พ": "พาน", "ฟ": "ฟัน", "ภ": "สำเภา", "ม": "ม้า",
+      "ย": "ยักษ์", "ร": "เรือ", "ล": "ลิง", "ว": "แหวน",
+      "ศ": "ศาลา", "ษ": "ฤๅษี", "ส": "เสือ", "ห": "หีบ", "ฬ": "จุฬา", "อ": "อ่าง", "ฮ": "นกฮูก",
+    };
 
     const MODES = {
       thai:      { icon: "🇹🇭", name: "Thai",              range: "ก – ฮ",           pool: THAI, thai: true },
@@ -514,6 +545,7 @@
         startedAt: Date.now(),
         turns: [],
         current: null,
+        streak: 0,
       };
       $("game-mode").textContent = `${MODES[selectedMode].icon} ${MODES[selectedMode].name}`;
       $("ok-count").textContent = "0";
@@ -556,47 +588,78 @@
       $("incorrect-btn").disabled = !enabled;
     }
 
-    function answer(correct) {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    async function answer(correct) {
       if (!game || busy) return;
-      game.turns.push({ value: game.current, correct, atSec: elapsedSec() });
+      const value = game.current;
+      game.turns.push({ value, correct, atSec: elapsedSec() });
+      game.streak = correct ? game.streak + 1 : 0;
       const ok = game.turns.filter(t => t.correct).length;
       $("ok-count").textContent = ok;
       $("no-count").textContent = game.turns.length - ok;
+
+      busy = true;
+      setAnswerButtons(false);
 
       const el = $("char");
       el.classList.remove("pop", "celebrate", "shake");
       void el.offsetWidth;
       if (correct) {
         el.classList.add("celebrate");
-        burst();
-        showCheer();
+        celebrate(game.streak);
         playYay();
       } else {
         el.classList.add("shake");
         playOops();
       }
 
-      busy = true;
-      setAnswerButtons(false);
+      // Read the letter aloud after the sound effect, then show the next one
       const thisGame = game;
-      setTimeout(() => {
-        if (game !== thisGame) return;
-        busy = false;
-        setAnswerButtons(true);
-        nextChar();
-      }, correct ? 900 : 450);
+      const voice = sleep(correct ? 350 : 400).then(() => game === thisGame && speak(value, thisGame.mode));
+      await Promise.all([sleep(correct ? 900 : 450), Promise.race([voice, sleep(3500)])]);
+      if (game !== thisGame) return;
+      busy = false;
+      setAnswerButtons(true);
+      nextChar();
     }
 
-    // ===== Effects: cheer text, confetti, sounds =====
+    // ===== Effects: cheer text, confetti, fireworks, rocket, sounds, voice =====
     const CHEERS = ["เก่งมาก! 🎉", "Great job! ⭐", "Yay! 🥳", "ถูกต้อง! 🌟", "Awesome! 🚀", "Super! 🌈", "เยี่ยมเลย! 💫"];
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    function showCheer() {
+    // Pick a random effect each time; every 5 in a row gets all of them
+    function celebrate(streak) {
+      if (streak > 0 && streak % 5 === 0) {
+        showCheer(`🔥 ${streak} ติดกัน!`);
+        burst();
+        fireworks(5);
+        flyRocket();
+        return;
+      }
+      showCheer();
+      const effects = [
+        () => burst(),
+        () => fireworks(3),
+        () => { flyRocket(); burst(40); },
+      ];
+      effects[Math.floor(Math.random() * effects.length)]();
+    }
+
+    function showCheer(text) {
       const el = $("cheer");
-      el.textContent = CHEERS[Math.floor(Math.random() * CHEERS.length)];
+      el.textContent = text || CHEERS[Math.floor(Math.random() * CHEERS.length)];
       el.classList.remove("show");
       void el.offsetWidth;
       el.classList.add("show");
+    }
+
+    function flyRocket() {
+      if (reduceMotion) return;
+      const el = $("rocket");
+      el.classList.remove("fly");
+      void el.offsetWidth;
+      el.classList.add("fly");
     }
 
     const fx = $("fx");
@@ -611,17 +674,26 @@
     window.addEventListener("resize", sizeFx);
     sizeFx();
 
-    function burst() {
+    function runFx() {
+      if (!fxRunning) {
+        fxRunning = true;
+        requestAnimationFrame(tickFx);
+      }
+    }
+
+    // Confetti and stars bursting out of the letter
+    function burst(count = 90) {
       if (reduceMotion) return;
       const dpr = devicePixelRatio;
       const r = $("char").getBoundingClientRect();
       const cx = (r.left + r.width / 2) * dpr;
       const cy = (r.top + r.height / 2) * dpr;
       const EMOJI = ["⭐", "🌟", "✨", "🎈", "💖", "🪐"];
-      for (let i = 0; i < 90; i++) {
+      for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = (4 + Math.random() * 10) * dpr;
         parts.push({
+          kind: "confetti",
           x: cx, y: cy,
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed - 4 * dpr,
@@ -635,39 +707,111 @@
           max: 70 + Math.random() * 40,
         });
       }
-      if (!fxRunning) {
-        fxRunning = true;
-        requestAnimationFrame(tickFx);
+      runFx();
+    }
+
+    // Fireworks: shells fly up from the bottom and explode into sparks
+    function fireworks(count) {
+      if (reduceMotion) return;
+      for (let i = 0; i < count; i++) setTimeout(launchShell, i * 280);
+    }
+
+    function launchShell() {
+      const dpr = devicePixelRatio;
+      const g = 0.22 * dpr;
+      const height = fx.height * (0.45 + Math.random() * 0.3);
+      parts.push({
+        kind: "shell",
+        x: fx.width * (0.15 + Math.random() * 0.7),
+        y: fx.height,
+        vx: (Math.random() - 0.5) * 2 * dpr,
+        vy: -Math.sqrt(2 * g * height),
+        g,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        life: 0,
+        max: Infinity,
+      });
+      runFx();
+    }
+
+    function explode(shell) {
+      const dpr = devicePixelRatio;
+      const sparks = [];
+      for (let i = 0; i < 60; i++) {
+        const angle = (i / 60) * Math.PI * 2 + Math.random() * 0.1;
+        const speed = (2 + Math.random() * 4) * dpr;
+        sparks.push({
+          kind: "spark",
+          x: shell.x, y: shell.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          g: 0.06 * dpr,
+          size: (2 + Math.random() * 2) * dpr,
+          color: Math.random() < 0.2 ? "#ffffff" : shell.color,
+          life: 0,
+          max: 50 + Math.random() * 30,
+        });
       }
+      return sparks;
     }
 
     function tickFx() {
       fctx.clearRect(0, 0, fx.width, fx.height);
-      parts = parts.filter(p => p.life < p.max);
+      const born = [];
       for (const p of parts) {
         p.life++;
-        p.vx *= 0.98;
-        p.vy = p.vy * 0.98 + p.g;
+        if (p.kind === "shell") {
+          p.vy += p.g;
+          p.x += p.vx;
+          p.y += p.vy;
+          fctx.strokeStyle = p.color;
+          fctx.lineWidth = 3 * devicePixelRatio;
+          fctx.beginPath();
+          fctx.moveTo(p.x, p.y);
+          fctx.lineTo(p.x - p.vx * 3, p.y - p.vy * 3);
+          fctx.stroke();
+          if (p.vy >= 0) {
+            p.life = p.max;
+            born.push(...explode(p));
+          }
+          continue;
+        }
+
+        const drag = p.kind === "spark" ? 0.97 : 0.98;
+        p.vx *= drag;
+        p.vy = p.vy * drag + p.g;
         p.x += p.vx;
         p.y += p.vy;
-        p.rot += p.vr;
         fctx.save();
         fctx.globalAlpha = 1 - p.life / p.max;
-        fctx.translate(p.x, p.y);
-        fctx.rotate(p.rot);
-        if (p.emoji) {
-          fctx.font = `${p.size * 3}px serif`;
-          fctx.textAlign = "center";
-          fctx.textBaseline = "middle";
-          fctx.fillText(p.emoji, 0, 0);
-        } else {
+        if (p.kind === "spark") {
           fctx.fillStyle = p.color;
-          fctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+          fctx.beginPath();
+          fctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          fctx.fill();
+        } else {
+          p.rot += p.vr;
+          fctx.translate(p.x, p.y);
+          fctx.rotate(p.rot);
+          if (p.emoji) {
+            fctx.font = `${p.size * 3}px serif`;
+            fctx.textAlign = "center";
+            fctx.textBaseline = "middle";
+            fctx.fillText(p.emoji, 0, 0);
+          } else {
+            fctx.fillStyle = p.color;
+            fctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+          }
         }
         fctx.restore();
       }
-      if (parts.length) requestAnimationFrame(tickFx);
-      else fxRunning = false;
+      parts = parts.filter(p => p.life < p.max).concat(born);
+      if (parts.length) {
+        requestAnimationFrame(tickFx);
+      } else {
+        fctx.clearRect(0, 0, fx.width, fx.height);
+        fxRunning = false;
+      }
     }
 
     // Sounds are generated in the browser (no audio files needed)
@@ -711,6 +855,46 @@
     // Soft, gentle "boop" — not scary
     const playOops = () => playNotes([[392, 0, 0.18], [311.13, 0.14, 0.25]], "sine", 0.15);
 
+    // Voice: the browser's built-in text-to-speech reads the letter aloud
+    const hasSpeech = "speechSynthesis" in window;
+    if (hasSpeech) {
+      speechSynthesis.getVoices();
+      speechSynthesis.addEventListener("voiceschanged", () => speechSynthesis.getVoices());
+    }
+
+    function pickVoice(lang) {
+      const voices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().replace("_", "-").startsWith(lang));
+      return voices.find(v => /en-us/i.test(v.lang.replace("_", "-"))) || voices[0] || null;
+    }
+
+    // Resolves when speaking is done (or right away if there is no voice for that language)
+    function speak(value, modeKey) {
+      return new Promise(resolve => {
+        if (!soundOn || !hasSpeech) return resolve();
+        let text, lang = "en";
+        if (MODES[modeKey].thai) {
+          text = `${value}อ ${THAI_WORDS[value]}`;
+          lang = "th";
+        } else if (/^[a-z]$/.test(value)) {
+          text = `small ${value.toUpperCase()}`;
+        } else if (/^[A-Z]$/.test(value)) {
+          text = modeKey === "enHard" ? `big ${value}` : value;
+        } else {
+          text = value;
+        }
+        const voice = pickVoice(lang);
+        if (!voice) return resolve();
+        const u = new SpeechSynthesisUtterance(text);
+        u.voice = voice;
+        u.lang = voice.lang;
+        u.rate = 0.85;
+        u.pitch = 1.15;
+        u.onend = u.onerror = () => resolve();
+        speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+      });
+    }
+
     $("correct-btn").addEventListener("click", () => answer(true));
     $("incorrect-btn").addEventListener("click", () => answer(false));
     $("stop-btn").addEventListener("click", stopGame);
@@ -718,6 +902,7 @@
     function stopGame() {
       if (!game) return;
       clearInterval(timerId);
+      if (hasSpeech) speechSynthesis.cancel();
       const endedAt = Date.now();
       const correct = game.turns.filter(t => t.correct).length;
       const record = {
