@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔤</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #05060f;
@@ -178,8 +178,14 @@
       text-shadow: 0 0 40px currentColor;
       user-select: none;
     }
-    /* Sarabun is a looped Thai font: letters keep their head circle (หัว), like school books */
-    .char.thai { font-family: "Sarabun", sans-serif; font-weight: 600; }
+    /* Looped Thai font at regular weight with a soft glow, so the head circles (หัว)
+       stay open and easy to see, like in school books. Bold or a strong glow fills them in. */
+    .char.thai {
+      font-family: "Sarabun", sans-serif;
+      font-weight: 400;
+      text-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
+      text-shadow: 0 0 18px color-mix(in srgb, currentColor 50%, transparent);
+    }
     .char.long { font-size: min(30vw, 34vh); }
     .char.pop { animation: pop 0.35s ease-out; }
     @keyframes pop {
@@ -253,6 +259,35 @@
     }
 
     .answer button:disabled { opacity: 0.6; }
+
+    /* ---------- Winner ---------- */
+    .win-banner { display: none; }
+    #result.win .win-banner { display: block; }
+    #result.win .result-card {
+      border-color: #ffd166;
+      box-shadow: 0 0 50px rgba(255, 209, 102, 0.35);
+    }
+    .trophy {
+      font-size: clamp(5rem, 20vw, 9rem);
+      line-height: 1.1;
+      animation: trophy 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes trophy {
+      from { transform: scale(1) rotate(-8deg); }
+      to { transform: scale(1.15) rotate(8deg); }
+    }
+    .winner {
+      font-size: clamp(2.5rem, 10vw, 4.5rem);
+      font-weight: 700;
+      background: linear-gradient(90deg, #ffd166, #f72585, #4cc9f0, #06d6a0, #ffd166);
+      background-size: 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: shine 3s linear infinite;
+    }
+    @keyframes shine { to { background-position: 300% 0; } }
+    .winner-th { font-size: 1.4rem; margin-bottom: 12px; }
     .sound-btn {
       padding: 8px 14px;
       border-radius: 999px;
@@ -326,7 +361,7 @@
       .pill { padding: 6px 12px; font-size: 0.95rem; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .char.pop, .char.celebrate, .char.shake { animation: none; }
+      .char.pop, .char.celebrate, .char.shake, .trophy { animation: none; }
     }
   </style>
 </head>
@@ -353,6 +388,7 @@
       <div class="bar">
         <span class="pill" id="game-mode"></span>
         <span class="pill timer" id="timer">00:00</span>
+        <span class="pill" id="progress"></span>
         <span class="pill score">
           <span class="ok">✔ <span id="ok-count">0</span></span>
           &nbsp;
@@ -377,6 +413,11 @@
         <span></span>
       </header>
       <div class="result-card">
+        <div class="win-banner">
+          <div class="trophy">🏆</div>
+          <div class="winner">WINNER!</div>
+          <div class="winner-th">ผู้ชนะ! เก่งที่สุดเลย! 🎉</div>
+        </div>
         <div id="result-title" style="font-size:1.3rem;font-weight:600"></div>
         <div class="big-score" id="result-score"></div>
         <div class="stats">
@@ -406,7 +447,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Mode</th><th>Games</th><th>Turns</th><th>Correct</th><th>Incorrect</th><th>Accuracy</th><th>Best game</th><th>Total time</th></tr>
+            <tr><th>Mode</th><th>Games</th><th>🏆 Wins</th><th>Turns</th><th>Correct</th><th>Incorrect</th><th>Accuracy</th><th>Best game</th><th>Total time</th></tr>
           </thead>
           <tbody id="mode-summary"></tbody>
         </table>
@@ -458,7 +499,7 @@
     };
 
     const MODES = {
-      thai:      { icon: "🇹🇭", name: "Thai",              range: "ก – ฮ",           pool: THAI, thai: true },
+      thai:      { icon: "🐘", name: "Thai",              range: "ก – ฮ",           pool: THAI, thai: true },
       enEasy:    { icon: "🔠", name: "English (Easy)",    range: "A – Z",            pool: UPPER },
       enMedium:  { icon: "🔡", name: "English (Medium)",  range: "a – z",            pool: LOWER },
       enHard:    { icon: "🔤", name: "English (Hard)",    range: "A – Z and a – z",  pool: [...UPPER, ...LOWER] },
@@ -546,7 +587,10 @@
         turns: [],
         current: null,
         streak: 0,
+        // Characters not yet answered correctly; a correct one is removed so it won't come back
+        remaining: new Set(MODES[selectedMode].pool),
       };
+      updateProgress();
       $("game-mode").textContent = `${MODES[selectedMode].icon} ${MODES[selectedMode].name}`;
       $("ok-count").textContent = "0";
       $("no-count").textContent = "0";
@@ -565,12 +609,18 @@
       return Math.floor((Date.now() - game.startedAt) / 1000);
     }
 
+    function updateProgress() {
+      const total = MODES[game.mode].pool.length;
+      $("progress").textContent = `⭐ ${total - game.remaining.size} / ${total}`;
+    }
+
     function nextChar() {
       const mode = MODES[game.mode];
+      const pool = [...game.remaining];
       let value;
       do {
-        value = mode.pool[Math.floor(Math.random() * mode.pool.length)];
-      } while (value === game.current && mode.pool.length > 1);
+        value = pool[Math.floor(Math.random() * pool.length)];
+      } while (value === game.current && pool.length > 1);
       game.current = value;
 
       const el = $("char");
@@ -595,9 +645,12 @@
       const value = game.current;
       game.turns.push({ value, correct, atSec: elapsedSec() });
       game.streak = correct ? game.streak + 1 : 0;
+      if (correct) game.remaining.delete(value);
+      const won = game.remaining.size === 0;
       const ok = game.turns.filter(t => t.correct).length;
       $("ok-count").textContent = ok;
       $("no-count").textContent = game.turns.length - ok;
+      updateProgress();
 
       busy = true;
       setAnswerButtons(false);
@@ -607,7 +660,7 @@
       void el.offsetWidth;
       if (correct) {
         el.classList.add("celebrate");
-        celebrate(game.streak);
+        if (!won) celebrate(game.streak);
         playYay();
       } else {
         el.classList.add("shake");
@@ -619,9 +672,26 @@
       const voice = sleep(correct ? 350 : 400).then(() => game === thisGame && speak(value, thisGame.mode));
       await Promise.all([sleep(correct ? 900 : 450), Promise.race([voice, sleep(3500)])]);
       if (game !== thisGame) return;
+      if (won) return finishGame(true);
       busy = false;
       setAnswerButtons(true);
       nextChar();
+    }
+
+    // Every character answered correctly: trophy, fireworks show, fanfare and voice
+    function winShow(modeKey) {
+      const center = () => ({ x: window.innerWidth / 2, y: window.innerHeight / 3 });
+      burst(150, center());
+      fireworks(10);
+      setTimeout(flyRocket, 600);
+      setTimeout(() => burst(120, center()), 2200);
+      setTimeout(() => fireworks(8), 2600);
+      setTimeout(flyRocket, 3200);
+      playFanfare();
+      setTimeout(() => {
+        if (MODES[modeKey].thai) speakText("เก่งมาก! หนูชนะแล้ว!", "th");
+        else speakText("Congratulations! You are the winner!", "en");
+      }, 2000);
     }
 
     // ===== Effects: cheer text, confetti, fireworks, rocket, sounds, voice =====
@@ -682,12 +752,15 @@
     }
 
     // Confetti and stars bursting out of the letter
-    function burst(count = 90) {
+    function burst(count = 90, origin) {
       if (reduceMotion) return;
       const dpr = devicePixelRatio;
-      const r = $("char").getBoundingClientRect();
-      const cx = (r.left + r.width / 2) * dpr;
-      const cy = (r.top + r.height / 2) * dpr;
+      if (!origin) {
+        const r = $("char").getBoundingClientRect();
+        origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }
+      const cx = origin.x * dpr;
+      const cy = origin.y * dpr;
       const EMOJI = ["⭐", "🌟", "✨", "🎈", "💖", "🪐"];
       for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
@@ -854,6 +927,11 @@
     const playYay = () => playNotes([[523.25, 0, 0.3], [659.25, 0.09, 0.3], [783.99, 0.18, 0.3], [1046.5, 0.27, 0.5]], "triangle", 0.25);
     // Soft, gentle "boop" — not scary
     const playOops = () => playNotes([[392, 0, 0.18], [311.13, 0.14, 0.25]], "sine", 0.15);
+    // Winner fanfare: "ta-ta-ta-taaa, ta-ta-taaaa"
+    const playFanfare = () => playNotes([
+      [523.25, 0, 0.18], [523.25, 0.2, 0.18], [523.25, 0.4, 0.18], [659.25, 0.6, 0.5],
+      [587.33, 1.1, 0.18], [659.25, 1.3, 0.18], [783.99, 1.5, 0.3], [1046.5, 1.8, 0.9],
+    ], "triangle", 0.25);
 
     // Voice: the browser's built-in text-to-speech reads the letter aloud
     const hasSpeech = "speechSynthesis" in window;
@@ -868,20 +946,9 @@
     }
 
     // Resolves when speaking is done (or right away if there is no voice for that language)
-    function speak(value, modeKey) {
+    function speakText(text, lang) {
       return new Promise(resolve => {
         if (!soundOn || !hasSpeech) return resolve();
-        let text, lang = "en";
-        if (MODES[modeKey].thai) {
-          text = `${value}อ ${THAI_WORDS[value]}`;
-          lang = "th";
-        } else if (/^[a-z]$/.test(value)) {
-          text = `small ${value.toUpperCase()}`;
-        } else if (/^[A-Z]$/.test(value)) {
-          text = modeKey === "enHard" ? `big ${value}` : value;
-        } else {
-          text = value;
-        }
         const voice = pickVoice(lang);
         if (!voice) return resolve();
         const u = new SpeechSynthesisUtterance(text);
@@ -890,17 +957,25 @@
         u.rate = 0.85;
         u.pitch = 1.15;
         u.onend = u.onerror = () => resolve();
-        speechSynthesis.cancel();
+        if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
         speechSynthesis.speak(u);
       });
     }
 
+    function speak(value, modeKey) {
+      if (MODES[modeKey].thai) return speakText(`${value}อ ${THAI_WORDS[value]}`, "th");
+      if (/^[a-z]$/.test(value)) return speakText(`small ${value.toUpperCase()}`, "en");
+      if (/^[A-Z]$/.test(value)) return speakText(modeKey === "enHard" ? `big ${value}` : value, "en");
+      return speakText(value, "en");
+    }
+
     $("correct-btn").addEventListener("click", () => answer(true));
     $("incorrect-btn").addEventListener("click", () => answer(false));
-    $("stop-btn").addEventListener("click", stopGame);
+    $("stop-btn").addEventListener("click", () => finishGame(false));
 
-    function stopGame() {
+    function finishGame(completed) {
       if (!game) return;
+      busy = false;
       clearInterval(timerId);
       if (hasSpeech) speechSynthesis.cancel();
       const endedAt = Date.now();
@@ -913,6 +988,7 @@
         durationSec: Math.round((endedAt - game.startedAt) / 1000),
         correct,
         incorrect: game.turns.length - correct,
+        completed,
         turns: game.turns,
       };
 
@@ -931,8 +1007,10 @@
       $("result-no").textContent = record.incorrect;
       $("result-time").textContent = fmtTime(record.durationSec);
       $("result-note").textContent = note;
+      $("result").classList.toggle("win", completed);
       game = null;
       show("result");
+      if (completed) winShow(record.mode);
     }
 
     $("again-btn").addEventListener("click", startGame);
@@ -953,6 +1031,7 @@
         return `<tr>
           <td>${m.icon} ${m.name}</td>
           <td class="num">${g.length}</td>
+          <td class="num">${g.filter(x => x.completed).length}</td>
           <td class="num">${ok + no}</td>
           <td class="num" style="color:var(--good)">${ok}</td>
           <td class="num" style="color:var(--bad)">${no}</td>
@@ -984,7 +1063,7 @@
         const d = new Date(x.startedAt);
         return `<tr>
           <td>${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
-          <td>${m.icon} ${escapeHtml(m.name)}</td>
+          <td>${m.icon} ${escapeHtml(m.name)}${x.completed ? " 🏆" : ""}</td>
           <td class="num">${fmtTime(x.durationSec)}</td>
           <td class="num" style="color:var(--good)">${x.correct}</td>
           <td class="num" style="color:var(--bad)">${x.incorrect}</td>
