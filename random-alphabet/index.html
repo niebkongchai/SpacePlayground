@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Random Alphabet</title>
+  <meta name="description" content="Random Alphabet — flash letters and numbers for kids, with score tracking.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔤</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Mitr:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #05060f;
+      --text: #e8eaff;
+      --muted: #9aa0c7;
+      --card: rgba(20, 24, 54, 0.6);
+      --card-border: rgba(140, 150, 255, 0.2);
+      --accent: #7c8cff;
+      --accent-2: #c77dff;
+      --good: #2ecc71;
+      --bad: #ff5c6c;
+      --glow: rgba(124, 140, 255, 0.45);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Fredoka", "Mitr", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(ellipse at 20% 10%, rgba(124, 140, 255, 0.16), transparent 50%),
+        radial-gradient(ellipse at 85% 30%, rgba(199, 125, 255, 0.14), transparent 50%),
+        radial-gradient(ellipse at 50% 100%, rgba(60, 200, 255, 0.10), transparent 60%);
+    }
+
+    .wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    button { font-family: inherit; cursor: pointer; border: none; }
+
+    /* ---------- Header ---------- */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 0;
+    }
+    header a, .link-btn {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 1rem;
+      background: none;
+    }
+    header a:hover, .link-btn:hover { color: var(--text); }
+
+    h1 {
+      font-size: clamp(2rem, 6vw, 3rem);
+      text-align: center;
+      background: linear-gradient(90deg, #ffffff, var(--accent) 50%, var(--accent-2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .sub { text-align: center; color: var(--muted); margin: 8px 0 28px; }
+
+    h2 { font-size: 1.3rem; margin: 28px 0 12px; }
+
+    /* ---------- Mode menu ---------- */
+    .modes {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .mode {
+      text-align: left;
+      padding: 20px;
+      border-radius: 18px;
+      background: var(--card);
+      border: 2px solid var(--card-border);
+      color: var(--text);
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .mode:hover { transform: translateY(-4px); border-color: var(--accent); }
+    .mode.selected {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 28px rgba(199, 125, 255, 0.35);
+    }
+    .mode .icon { font-size: 2rem; }
+    .mode .name { font-size: 1.15rem; font-weight: 600; margin-top: 8px; }
+    .mode .range { color: var(--muted); font-family: "Mitr", sans-serif; margin-top: 4px; }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 32px 0 48px;
+    }
+    .btn {
+      padding: 14px 32px;
+      border-radius: 999px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 24px var(--glow);
+      transition: transform 0.15s, opacity 0.2s;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn.ghost {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      box-shadow: none;
+    }
+    .btn.danger { background: rgba(255, 92, 108, 0.15); color: var(--bad); box-shadow: none; }
+
+    /* ---------- Game ---------- */
+    #game.active {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding-bottom: 16px;
+    }
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 0;
+      flex-wrap: wrap;
+    }
+    .pill {
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    .timer { font-variant-numeric: tabular-nums; }
+    .score .ok { color: var(--good); }
+    .score .no { color: var(--bad); }
+    .stop {
+      padding: 10px 22px;
+      border-radius: 999px;
+      font-size: 1rem;
+      font-weight: 600;
+      background: rgba(255, 92, 108, 0.15);
+      color: var(--bad);
+      border: 1px solid rgba(255, 92, 108, 0.4);
+    }
+
+    .stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 0;
+    }
+    .char {
+      font-family: "Fredoka", "Mitr", sans-serif;
+      font-weight: 700;
+      line-height: 1;
+      font-size: min(52vw, 48vh);
+      text-shadow: 0 0 40px currentColor;
+      user-select: none;
+    }
+    .char.thai { font-family: "Mitr", sans-serif; font-weight: 500; }
+    .char.long { font-size: min(30vw, 34vh); }
+    .char.pop { animation: pop 0.35s ease-out; }
+    @keyframes pop {
+      0% { transform: scale(0.6); opacity: 0; }
+      70% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+
+    .answer {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .answer button {
+      padding: 22px 12px;
+      border-radius: 22px;
+      font-size: clamp(1.2rem, 4vw, 1.6rem);
+      font-weight: 700;
+      color: #fff;
+      transition: transform 0.1s;
+    }
+    .answer button:active { transform: scale(0.96); }
+    .correct { background: var(--good); box-shadow: 0 6px 0 #1e8a4c; }
+    .incorrect { background: var(--bad); box-shadow: 0 6px 0 #b83a47; }
+
+    /* ---------- Result ---------- */
+    .result-card {
+      max-width: 480px;
+      margin: 24px auto 0;
+      padding: 28px;
+      border-radius: 22px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      text-align: center;
+    }
+    .big-score { font-size: 3.5rem; font-weight: 700; margin: 12px 0; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .stat { padding: 12px 6px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); }
+    .stat .v { font-size: 1.4rem; font-weight: 700; }
+    .stat .l { color: var(--muted); font-size: 0.85rem; }
+
+    /* ---------- Summary ---------- */
+    .table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid var(--card-border); }
+    table { width: 100%; border-collapse: collapse; background: var(--card); min-width: 560px; }
+    th, td { padding: 12px 14px; text-align: left; font-size: 0.95rem; }
+    th { color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--card-border); }
+    tr + tr td { border-top: 1px solid rgba(255, 255, 255, 0.05); }
+    td.num { font-variant-numeric: tabular-nums; }
+    .missed { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(255, 92, 108, 0.12);
+      color: var(--bad);
+      font-family: "Fredoka", "Mitr", sans-serif;
+    }
+    .chip b { font-size: 1.2rem; margin-right: 4px; }
+    .empty { color: var(--muted); padding: 16px 0; }
+    .mode-missed { margin-bottom: 12px; }
+    .mode-missed .label { color: var(--muted); margin-bottom: 6px; }
+
+    @media (max-width: 520px) {
+      .answer button { padding: 20px 8px; }
+      .bar { padding: 12px 0; }
+      .pill { padding: 6px 12px; font-size: 0.95rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .char.pop { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- ===== Mode menu ===== -->
+    <section id="menu" class="screen active">
+      <header>
+        <a href="../">← SpacePlayground</a>
+        <button class="link-btn" data-go="summary">📊 Summary</button>
+      </header>
+      <h1>🔤 Random Alphabet</h1>
+      <p class="sub">Pick a mode, then press Start</p>
+      <div class="modes" id="mode-list"></div>
+      <div class="actions">
+        <button class="btn" id="start-btn" disabled>▶ Start</button>
+        <button class="btn ghost" data-go="summary">📊 Summary Result</button>
+      </div>
+    </section>
+
+    <!-- ===== Game ===== -->
+    <section id="game" class="screen">
+      <div class="bar">
+        <span class="pill" id="game-mode"></span>
+        <span class="pill timer" id="timer">00:00</span>
+        <span class="pill score">
+          <span class="ok">✔ <span id="ok-count">0</span></span>
+          &nbsp;
+          <span class="no">✘ <span id="no-count">0</span></span>
+        </span>
+        <button class="stop" id="stop-btn">■ Stop</button>
+      </div>
+      <div class="stage">
+        <div class="char" id="char"></div>
+      </div>
+      <div class="answer">
+        <button class="correct" id="correct-btn">✔ Correct</button>
+        <button class="incorrect" id="incorrect-btn">✘ Incorrect</button>
+      </div>
+    </section>
+
+    <!-- ===== Result of one game ===== -->
+    <section id="result" class="screen">
+      <header>
+        <a href="../">← SpacePlayground</a>
+        <span></span>
+      </header>
+      <div class="result-card">
+        <div id="result-title" style="font-size:1.3rem;font-weight:600"></div>
+        <div class="big-score" id="result-score"></div>
+        <div class="stats">
+          <div class="stat"><div class="v" id="result-ok" style="color:var(--good)"></div><div class="l">Correct</div></div>
+          <div class="stat"><div class="v" id="result-no" style="color:var(--bad)"></div><div class="l">Incorrect</div></div>
+          <div class="stat"><div class="v" id="result-time"></div><div class="l">Time</div></div>
+        </div>
+        <p class="sub" id="result-note" style="margin:16px 0 0"></p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="again-btn">↻ Play again</button>
+        <button class="btn ghost" data-go="menu">Change mode</button>
+        <button class="btn ghost" data-go="summary">📊 Summary</button>
+      </div>
+    </section>
+
+    <!-- ===== Summary ===== -->
+    <section id="summary" class="screen">
+      <header>
+        <button class="link-btn" data-go="menu">← Back to modes</button>
+        <a href="../">SpacePlayground</a>
+      </header>
+      <h1>📊 Summary Result</h1>
+      <p class="sub">All games, grouped by mode</p>
+
+      <h2>By mode</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Mode</th><th>Games</th><th>Turns</th><th>Correct</th><th>Incorrect</th><th>Accuracy</th><th>Best game</th><th>Total time</th></tr>
+          </thead>
+          <tbody id="mode-summary"></tbody>
+        </table>
+      </div>
+
+      <h2>Most missed</h2>
+      <div id="missed"></div>
+
+      <h2>Game history</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Mode</th><th>Time</th><th>Correct</th><th>Incorrect</th><th>Accuracy</th></tr>
+          </thead>
+          <tbody id="history"></tbody>
+        </table>
+      </div>
+
+      <div class="actions">
+        <button class="btn ghost" id="export-btn">⬇ Export JSON</button>
+        <button class="btn ghost" id="import-btn">⬆ Import JSON</button>
+        <button class="btn danger" id="clear-btn">🗑 Clear all</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // ===== Modes =====
+    const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
+    const UPPER = range(65, 90).map(c => String.fromCharCode(c));
+    const LOWER = range(97, 122).map(c => String.fromCharCode(c));
+    // Thai consonants ก (U+0E01) to ฮ (U+0E2E) — 44 letters
+    const THAI = range(0x0E01, 0x0E2E).map(c => String.fromCharCode(c));
+
+    const MODES = {
+      thai:      { icon: "🇹🇭", name: "Thai",              range: "ก – ฮ",           pool: THAI, thai: true },
+      enEasy:    { icon: "🔠", name: "English (Easy)",    range: "A – Z",            pool: UPPER },
+      enMedium:  { icon: "🔡", name: "English (Medium)",  range: "a – z",            pool: LOWER },
+      enHard:    { icon: "🔤", name: "English (Hard)",    range: "A – Z and a – z",  pool: [...UPPER, ...LOWER] },
+      numEasy:   { icon: "1️⃣", name: "Number (Easy)",     range: "0 – 9",            pool: range(0, 9).map(String) },
+      numMedium: { icon: "🔢", name: "Number (Medium)",   range: "0 – 100",          pool: range(0, 100).map(String) },
+      numHard:   { icon: "🚀", name: "Number (Hard)",     range: "0 – 1000",         pool: range(0, 1000).map(String) },
+    };
+
+    const COLORS = ["#ffd166", "#06d6a0", "#4cc9f0", "#f72585", "#b8f2e6", "#ff9f1c", "#c77dff", "#90f1ef", "#ffadad"];
+
+    // ===== Storage (JSON in this browser) =====
+    const STORE_KEY = "spaceplayground.randomAlphabet.v1";
+
+    function loadData() {
+      try {
+        const data = JSON.parse(localStorage.getItem(STORE_KEY));
+        if (data && Array.isArray(data.games)) return data;
+      } catch (e) {}
+      return { version: 1, games: [] };
+    }
+
+    function saveData(data) {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(data));
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // ===== Helpers =====
+    const $ = id => document.getElementById(id);
+
+    function fmtTime(sec) {
+      const m = Math.floor(sec / 60), s = sec % 60;
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function pct(ok, total) {
+      return total ? Math.round((ok / total) * 100) + "%" : "–";
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function show(screen) {
+      document.querySelectorAll(".screen").forEach(el => el.classList.toggle("active", el.id === screen));
+      if (screen === "summary") renderSummary();
+      window.scrollTo(0, 0);
+    }
+
+    document.querySelectorAll("[data-go]").forEach(el =>
+      el.addEventListener("click", () => show(el.dataset.go))
+    );
+
+    // ===== Mode menu =====
+    let selectedMode = null;
+
+    for (const [key, m] of Object.entries(MODES)) {
+      const btn = document.createElement("button");
+      btn.className = "mode";
+      btn.dataset.mode = key;
+      btn.innerHTML = `<div class="icon">${m.icon}</div><div class="name">${m.name}</div><div class="range">${m.range}</div>`;
+      btn.addEventListener("click", () => {
+        selectedMode = key;
+        document.querySelectorAll(".mode").forEach(el => el.classList.toggle("selected", el === btn));
+        $("start-btn").disabled = false;
+      });
+      btn.addEventListener("dblclick", startGame);
+      $("mode-list").appendChild(btn);
+    }
+
+    $("start-btn").addEventListener("click", startGame);
+
+    // ===== Game =====
+    let game = null;
+    let timerId = null;
+
+    function startGame() {
+      if (!selectedMode) return;
+      game = {
+        mode: selectedMode,
+        startedAt: Date.now(),
+        turns: [],
+        current: null,
+      };
+      $("game-mode").textContent = `${MODES[selectedMode].icon} ${MODES[selectedMode].name}`;
+      $("ok-count").textContent = "0";
+      $("no-count").textContent = "0";
+      $("timer").textContent = "00:00";
+      clearInterval(timerId);
+      timerId = setInterval(() => {
+        $("timer").textContent = fmtTime(elapsedSec());
+      }, 250);
+      show("game");
+      nextChar();
+    }
+
+    function elapsedSec() {
+      return Math.floor((Date.now() - game.startedAt) / 1000);
+    }
+
+    function nextChar() {
+      const mode = MODES[game.mode];
+      let value;
+      do {
+        value = mode.pool[Math.floor(Math.random() * mode.pool.length)];
+      } while (value === game.current && mode.pool.length > 1);
+      game.current = value;
+
+      const el = $("char");
+      el.textContent = value;
+      el.className = "char" + (mode.thai ? " thai" : "") + (value.length >= 3 ? " long" : "");
+      el.style.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      void el.offsetWidth; // restart the pop animation
+      el.classList.add("pop");
+    }
+
+    function answer(correct) {
+      if (!game) return;
+      game.turns.push({ value: game.current, correct, atSec: elapsedSec() });
+      const ok = game.turns.filter(t => t.correct).length;
+      $("ok-count").textContent = ok;
+      $("no-count").textContent = game.turns.length - ok;
+      nextChar();
+    }
+
+    $("correct-btn").addEventListener("click", () => answer(true));
+    $("incorrect-btn").addEventListener("click", () => answer(false));
+    $("stop-btn").addEventListener("click", stopGame);
+
+    function stopGame() {
+      if (!game) return;
+      clearInterval(timerId);
+      const endedAt = Date.now();
+      const correct = game.turns.filter(t => t.correct).length;
+      const record = {
+        id: String(game.startedAt),
+        mode: game.mode,
+        startedAt: new Date(game.startedAt).toISOString(),
+        endedAt: new Date(endedAt).toISOString(),
+        durationSec: Math.round((endedAt - game.startedAt) / 1000),
+        correct,
+        incorrect: game.turns.length - correct,
+        turns: game.turns,
+      };
+
+      let note = "";
+      if (record.turns.length === 0) {
+        note = "No turns played, so this game was not saved.";
+      } else {
+        const data = loadData();
+        data.games.push(record);
+        note = saveData(data) ? "Saved ✓" : "Could not save (browser storage is blocked).";
+      }
+
+      $("result-title").textContent = `${MODES[record.mode].icon} ${MODES[record.mode].name}`;
+      $("result-score").textContent = `${record.correct} / ${record.turns.length}`;
+      $("result-ok").textContent = record.correct;
+      $("result-no").textContent = record.incorrect;
+      $("result-time").textContent = fmtTime(record.durationSec);
+      $("result-note").textContent = note;
+      game = null;
+      show("result");
+    }
+
+    $("again-btn").addEventListener("click", startGame);
+
+    // ===== Summary =====
+    function renderSummary() {
+      const games = loadData().games;
+
+      // By mode
+      const rows = Object.entries(MODES).map(([key, m]) => {
+        const g = games.filter(x => x.mode === key);
+        const ok = g.reduce((s, x) => s + x.correct, 0);
+        const no = g.reduce((s, x) => s + x.incorrect, 0);
+        const time = g.reduce((s, x) => s + x.durationSec, 0);
+        const best = g.length
+          ? g.reduce((b, x) => (x.correct / (x.correct + x.incorrect) > b.correct / (b.correct + b.incorrect) ? x : b))
+          : null;
+        return `<tr>
+          <td>${m.icon} ${m.name}</td>
+          <td class="num">${g.length}</td>
+          <td class="num">${ok + no}</td>
+          <td class="num" style="color:var(--good)">${ok}</td>
+          <td class="num" style="color:var(--bad)">${no}</td>
+          <td class="num">${pct(ok, ok + no)}</td>
+          <td class="num">${best ? `${best.correct}/${best.correct + best.incorrect}` : "–"}</td>
+          <td class="num">${g.length ? fmtTime(time) : "–"}</td>
+        </tr>`;
+      });
+      $("mode-summary").innerHTML = rows.join("");
+
+      // Most missed characters per mode
+      const missedHtml = Object.entries(MODES).map(([key, m]) => {
+        const counts = {};
+        games.filter(x => x.mode === key).forEach(x =>
+          x.turns.forEach(t => { if (!t.correct) counts[t.value] = (counts[t.value] || 0) + 1; })
+        );
+        const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        if (!top.length) return "";
+        return `<div class="mode-missed">
+          <div class="label">${m.icon} ${m.name}</div>
+          <div class="missed">${top.map(([v, n]) => `<span class="chip"><b>${escapeHtml(v)}</b>×${n}</span>`).join("")}</div>
+        </div>`;
+      }).join("");
+      $("missed").innerHTML = missedHtml || `<p class="empty">No mistakes yet 🎉</p>`;
+
+      // History (newest first)
+      const hist = [...games].reverse().map(x => {
+        const m = MODES[x.mode] || { icon: "❔", name: x.mode };
+        const d = new Date(x.startedAt);
+        return `<tr>
+          <td>${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+          <td>${m.icon} ${escapeHtml(m.name)}</td>
+          <td class="num">${fmtTime(x.durationSec)}</td>
+          <td class="num" style="color:var(--good)">${x.correct}</td>
+          <td class="num" style="color:var(--bad)">${x.incorrect}</td>
+          <td class="num">${pct(x.correct, x.correct + x.incorrect)}</td>
+        </tr>`;
+      });
+      $("history").innerHTML = hist.join("") || `<tr><td colspan="6" class="empty">No games yet. Go play one!</td></tr>`;
+    }
+
+    // ===== Export / Import / Clear =====
+    $("export-btn").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(loadData(), null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `random-alphabet-results-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    $("import-btn").addEventListener("click", () => $("import-file").click());
+
+    $("import-file").addEventListener("change", async e => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      try {
+        const incoming = JSON.parse(await file.text());
+        if (!incoming || !Array.isArray(incoming.games)) throw new Error("bad file");
+        const data = loadData();
+        const ids = new Set(data.games.map(g => g.id));
+        const added = incoming.games.filter(g => g && g.id && !ids.has(g.id));
+        data.games.push(...added);
+        data.games.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+        saveData(data);
+        alert(`Imported ${added.length} new game(s).`);
+        renderSummary();
+      } catch (err) {
+        alert("That file doesn't look like a Random Alphabet export.");
+      }
+    });
+
+    $("clear-btn").addEventListener("click", () => {
+      if (!confirm("Delete ALL saved results? Tip: Export JSON first if you want a backup.")) return;
+      saveData({ version: 1, games: [] });
+      renderSummary();
+    });
+  </script>
+</body>
+</html>
