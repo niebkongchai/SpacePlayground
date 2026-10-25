@@ -289,6 +289,42 @@
     }
     @keyframes shine { to { background-position: 300% 0; } }
     .winner-th { font-size: 1.4rem; margin-bottom: 12px; }
+
+    /* ---------- Voice recording ---------- */
+    .voice-progress { text-align: center; font-size: 1.1rem; margin-bottom: 20px; }
+    .voice-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .vcard {
+      padding: 14px 10px;
+      border-radius: 16px;
+      background: var(--card);
+      border: 2px solid var(--card-border);
+      text-align: center;
+    }
+    .vcard.done { border-color: rgba(46, 204, 113, 0.55); }
+    .vcard.recording {
+      border-color: var(--bad);
+      animation: rec-pulse 1s ease-in-out infinite alternate;
+    }
+    @keyframes rec-pulse { to { box-shadow: 0 0 24px rgba(255, 92, 108, 0.6); } }
+    .vchar { font-family: "Sarabun", sans-serif; font-size: 3.5rem; line-height: 1.2; }
+    .vhint { font-family: "Sarabun", sans-serif; color: var(--muted); font-size: 0.95rem; min-height: 1.4em; }
+    .vbtns { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+    .vbtns button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 1.05rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+    }
+    .vbtns button:disabled { opacity: 0.3; cursor: default; }
+    .vbtns .rec { background: rgba(255, 92, 108, 0.18); }
+    .vcard.recording .rec { background: var(--bad); }
+    .voice-msg { text-align: center; color: var(--bad); margin-bottom: 16px; }
     .sound-btn {
       padding: 8px 14px;
       border-radius: 999px;
@@ -373,7 +409,11 @@
     <section id="menu" class="screen active">
       <header>
         <a href="../">← SpacePlayground</a>
-        <button class="link-btn" data-go="summary">📊 Summary</button>
+        <span>
+          <button class="link-btn" data-go="voice">🎙 Thai Voice</button>
+          &nbsp;
+          <button class="link-btn" data-go="summary">📊 Summary</button>
+        </span>
       </header>
       <h1>🔤 Random Alphabet</h1>
       <p class="sub">Pick a mode, then press Start</p>
@@ -475,6 +515,28 @@
       </div>
     </section>
 
+    <!-- ===== Record your own Thai voice ===== -->
+    <section id="voice" class="screen">
+      <header>
+        <button class="link-btn" data-go="menu">← Back to modes</button>
+        <a href="../">SpacePlayground</a>
+      </header>
+      <h1>🎙 Thai Voice</h1>
+      <p class="sub">
+        อัดเสียงของคุณเองทีละตัว — เกมจะเล่นเสียงของคุณ 2 ครั้งแทนเสียงคอมพิวเตอร์<br>
+        Tap 🎙 to record, tap ■ to stop (stops by itself after 5 s). Saved on this device only.
+      </p>
+      <p class="voice-msg" id="voice-msg" hidden></p>
+      <div class="voice-progress" id="voice-progress"></div>
+      <div class="voice-grid" id="voice-grid"></div>
+      <div class="actions">
+        <button class="btn ghost" id="voice-export-btn">⬇ Export voices</button>
+        <button class="btn ghost" id="voice-import-btn">⬆ Import voices</button>
+        <button class="btn danger" id="voice-clear-btn">🗑 Delete all voices</button>
+        <input type="file" id="voice-import-file" accept="application/json,.json" hidden>
+      </div>
+    </section>
+
   </div>
 
   <canvas id="fx"></canvas>
@@ -488,17 +550,23 @@
     const LOWER = range(97, 122).map(c => String.fromCharCode(c));
     // The 44 Thai consonants ก – ฮ (ฤ and ฦ are vowels, so they are left out)
     const THAI = [..."กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ"];
-    // What the voice says for each consonant, spelled the way it is pronounced
-    // (e.g. ฆ → "คอ ระฆัง", ฑ → "ทอ มนโท") so text-to-speech reads it like a Thai speaker
-    const THAI_SPEECH = {
-      "ก": "กอ ไก่", "ข": "ขอ ไข่", "ฃ": "ขอ ขวด", "ค": "คอ ควาย", "ฅ": "คอ คน", "ฆ": "คอ ระฆัง", "ง": "งอ งู",
-      "จ": "จอ จาน", "ฉ": "ฉอ ฉิ่ง", "ช": "ชอ ช้าง", "ซ": "ซอ โซ่", "ฌ": "ชอ เชอ", "ญ": "ยอ หญิง",
-      "ฎ": "ดอ ชะดา", "ฏ": "ตอ ปะตัก", "ฐ": "ถอ ถาน", "ฑ": "ทอ มนโท", "ฒ": "ทอ ผู้เท่า", "ณ": "นอ เนน",
-      "ด": "ดอ เด็ก", "ต": "ตอ เต่า", "ถ": "ถอ ถุง", "ท": "ทอ ทะหาน", "ธ": "ทอ ธง", "น": "นอ หนู",
-      "บ": "บอ ใบไม้", "ป": "ปอ ปลา", "ผ": "ผอ ผึ้ง", "ฝ": "ฝอ ฝา", "พ": "พอ พาน", "ฟ": "ฟอ ฟัน", "ภ": "พอ สำเภา", "ม": "มอ ม้า",
-      "ย": "ยอ ยัก", "ร": "รอ เรือ", "ล": "ลอ ลิง", "ว": "วอ แหวน",
-      "ศ": "สอ สาลา", "ษ": "สอ รือสี", "ส": "สอ เสือ", "ห": "หอ หีบ", "ฬ": "ลอ จุลา", "อ": "ออ อ่าง", "ฮ": "ฮอ นกฮูก",
+    // Word for each consonant (ก → ไก่), shown as the hint when recording your voice
+    const THAI_WORDS = {
+      "ก": "ไก่", "ข": "ไข่", "ฃ": "ขวด", "ค": "ควาย", "ฅ": "คน", "ฆ": "ระฆัง", "ง": "งู",
+      "จ": "จาน", "ฉ": "ฉิ่ง", "ช": "ช้าง", "ซ": "โซ่", "ฌ": "เฌอ", "ญ": "หญิง",
+      "ฎ": "ชฎา", "ฏ": "ปฏัก", "ฐ": "ฐาน", "ฑ": "มณโฑ", "ฒ": "ผู้เฒ่า", "ณ": "เณร",
+      "ด": "เด็ก", "ต": "เต่า", "ถ": "ถุง", "ท": "ทหาร", "ธ": "ธง", "น": "หนู",
+      "บ": "ใบไม้", "ป": "ปลา", "ผ": "ผึ้ง", "ฝ": "ฝา", "พ": "พาน", "ฟ": "ฟัน", "ภ": "สำเภา", "ม": "ม้า",
+      "ย": "ยักษ์", "ร": "เรือ", "ล": "ลิง", "ว": "แหวน",
+      "ศ": "ศาลา", "ษ": "ฤๅษี", "ส": "เสือ", "ห": "หีบ", "ฬ": "จุฬา", "อ": "อ่าง", "ฮ": "นกฮูก",
     };
+    // Computer voice: say the letter on its own (it reads ก as "กอ"; writing "กอ" makes it
+    // spell out อ as "ออ อ่าง"), and respell words it misreads the way they are pronounced
+    const SPOKEN_WORDS = {
+      "ฌ": "เชอ", "ฎ": "ชะดา", "ฏ": "ปะตัก", "ฐ": "ถาน", "ฑ": "มนโท", "ฒ": "ผู้เท่า", "ณ": "เนน",
+      "ท": "ทะหาน", "ย": "ยัก", "ศ": "สาลา", "ษ": "รือสี", "ฬ": "จุลา",
+    };
+    const thaiSpeech = c => `${c} ${SPOKEN_WORDS[c] || THAI_WORDS[c]}`;
 
     // Thai levels: 10 letters each, in alphabet order (level 5 = the last 4)
     const thaiLevel = (n, icon) => {
@@ -562,6 +630,8 @@
     function show(screen) {
       document.querySelectorAll(".screen").forEach(el => el.classList.toggle("active", el.id === screen));
       if (screen === "summary") renderSummary();
+      if (screen === "voice") renderVoices();
+      else stopRecording();
       window.scrollTo(0, 0);
     }
 
@@ -718,7 +788,8 @@
       setTimeout(flyRocket, 3200);
       playFanfare();
       setTimeout(() => {
-        if (MODES[modeKey].thai) speakText("เก่งมาก! หนูชนะแล้ว!", "th");
+        if (MODES[modeKey].thai && voiceCache.has(WIN_KEY)) playRecording(WIN_KEY);
+        else if (MODES[modeKey].thai) speakText("เก่งมาก! หนูชนะแล้ว!", "th");
         else speakText("Congratulations! You are the winner!", "en");
       }, 2000);
     }
@@ -993,7 +1064,8 @@
     }
 
     function speak(value, modeKey) {
-      if (MODES[modeKey].thai) return speakText(THAI_SPEECH[value], "th");
+      if (MODES[modeKey].thai && voiceCache.has(value)) return playRecording(value);
+      if (MODES[modeKey].thai) return speakText(thaiSpeech(value), "th");
       if (/^[a-z]$/.test(value)) return speakText(`small ${value.toUpperCase()}`, "en");
       if (/^[A-Z]$/.test(value)) return speakText(modeKey === "enHard" ? `big ${value}` : value, "en");
       return speakText(value, "en");
@@ -1008,6 +1080,7 @@
       busy = false;
       clearInterval(timerId);
       if (hasSpeech) speechSynthesis.cancel();
+      stopPlayback();
       const endedAt = Date.now();
       const correct = game.turns.filter(t => t.correct).length;
       const record = {
@@ -1044,6 +1117,206 @@
     }
 
     $("again-btn").addEventListener("click", startGame);
+
+    // ===== Your own recorded Thai voice (stored in IndexedDB on this device) =====
+    const WIN_KEY = "__win";
+    const VOICE_ITEMS = [
+      ...THAI.map(c => ({ key: c, label: c, hint: `${c} ${THAI_WORDS[c]}` })),
+      { key: WIN_KEY, label: "🏆", hint: "เก่งมาก! หนูชนะแล้ว!" },
+    ];
+    const voiceCache = new Map(); // key -> audio Blob
+    let dbPromise = null;
+
+    function openDb() {
+      dbPromise = dbPromise || new Promise((resolve, reject) => {
+        const req = indexedDB.open("spaceplayground-random-alphabet", 1);
+        req.onupgradeneeded = () => req.result.createObjectStore("voices");
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      return dbPromise;
+    }
+
+    async function voiceStore(mode, fn) {
+      const db = await openDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction("voices", mode);
+        const req = fn(tx.objectStore("voices"));
+        tx.oncomplete = () => resolve(req && req.result);
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function loadVoices() {
+      try {
+        const db = await openDb();
+        await new Promise((resolve, reject) => {
+          const req = db.transaction("voices").objectStore("voices").openCursor();
+          req.onsuccess = () => {
+            const cur = req.result;
+            if (!cur) return resolve();
+            voiceCache.set(cur.key, cur.value);
+            cur.continue();
+          };
+          req.onerror = () => reject(req.error);
+        });
+      } catch (e) {}
+    }
+    loadVoices();
+
+    async function saveVoice(key, blob) {
+      await voiceStore("readwrite", s => s.put(blob, key));
+      voiceCache.set(key, blob);
+    }
+
+    async function deleteVoice(key) {
+      await voiceStore("readwrite", s => s.delete(key));
+      voiceCache.delete(key);
+    }
+
+    let currentAudio = null;
+
+    function stopPlayback() {
+      if (currentAudio) currentAudio.pause();
+      currentAudio = null;
+    }
+
+    // Resolves when the recording has finished playing
+    function playRecording(key, force) {
+      return new Promise(resolve => {
+        const blob = voiceCache.get(key);
+        if (!blob || (!soundOn && !force)) return resolve();
+        stopPlayback();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        currentAudio = audio;
+        const done = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.onended = audio.onerror = audio.onpause = done;
+        audio.play().catch(done);
+      });
+    }
+
+    // Recording: one letter at a time
+    let recorder = null;
+    let recordingKey = null;
+    let recordTimer = null;
+
+    async function startRecording(key) {
+      stopRecording();
+      stopPlayback();
+      const msg = $("voice-msg");
+      msg.hidden = true;
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        msg.textContent = "Can't use the microphone. Please allow microphone access for this site and try again.";
+        msg.hidden = false;
+        return;
+      }
+      const chunks = [];
+      const rec = new MediaRecorder(stream);
+      recorder = rec;
+      recordingKey = key;
+      rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+      rec.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        if (recorder === rec) {
+          recorder = null;
+          recordingKey = null;
+        }
+        try {
+          if (blob.size) await saveVoice(key, blob);
+        } catch (e) {
+          msg.textContent = "Could not save the recording (browser storage is blocked).";
+          msg.hidden = false;
+        }
+        renderVoices();
+        if (voiceCache.has(key)) playRecording(key, true);
+      };
+      recorder.start();
+      recordTimer = setTimeout(stopRecording, 5000);
+      renderVoices();
+    }
+
+    function stopRecording() {
+      clearTimeout(recordTimer);
+      if (recorder && recorder.state === "recording") recorder.stop();
+    }
+
+    function renderVoices() {
+      const grid = $("voice-grid");
+      const done = VOICE_ITEMS.filter(v => voiceCache.has(v.key)).length;
+      $("voice-progress").textContent = `🎙 Recorded ${done} / ${VOICE_ITEMS.length}`;
+      grid.innerHTML = "";
+      for (const item of VOICE_ITEMS) {
+        const has = voiceCache.has(item.key);
+        const isRec = recordingKey === item.key;
+        const card = document.createElement("div");
+        card.className = "vcard" + (has ? " done" : "") + (isRec ? " recording" : "");
+        card.innerHTML = `
+          <div class="vchar">${item.label}</div>
+          <div class="vhint">${item.hint}</div>
+          <div class="vbtns">
+            <button class="rec" title="Record">${isRec ? "■" : "🎙"}</button>
+            <button class="play" title="Play" ${has ? "" : "disabled"}>▶</button>
+            <button class="del" title="Delete" ${has ? "" : "disabled"}>🗑</button>
+          </div>`;
+        card.querySelector(".rec").addEventListener("click", () => (isRec ? stopRecording() : startRecording(item.key)));
+        card.querySelector(".play").addEventListener("click", () => playRecording(item.key, true));
+        card.querySelector(".del").addEventListener("click", async () => {
+          await deleteVoice(item.key).catch(() => {});
+          renderVoices();
+        });
+        grid.appendChild(card);
+      }
+    }
+
+    const blobToDataUrl = blob => new Promise(resolve => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.readAsDataURL(blob);
+    });
+
+    $("voice-export-btn").addEventListener("click", async () => {
+      const voices = {};
+      for (const [key, blob] of voiceCache) voices[key] = await blobToDataUrl(blob);
+      const file = new Blob([JSON.stringify({ version: 1, voices })], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(file);
+      a.download = `random-alphabet-thai-voice-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    $("voice-import-btn").addEventListener("click", () => $("voice-import-file").click());
+
+    $("voice-import-file").addEventListener("change", async e => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      try {
+        const data = JSON.parse(await file.text());
+        if (!data || typeof data.voices !== "object") throw new Error("bad file");
+        let count = 0;
+        for (const [key, url] of Object.entries(data.voices)) {
+          if (!VOICE_ITEMS.some(v => v.key === key) || !String(url).startsWith("data:audio/")) continue;
+          await saveVoice(key, await (await fetch(url)).blob());
+          count++;
+        }
+        alert(`Imported ${count} recording(s).`);
+        renderVoices();
+      } catch (err) {
+        alert("That file doesn't look like a Thai Voice export.");
+      }
+    });
+
+    $("voice-clear-btn").addEventListener("click", async () => {
+      if (!confirm("Delete ALL your recordings? Tip: Export voices first if you want a backup.")) return;
+      for (const key of [...voiceCache.keys()]) await deleteVoice(key).catch(() => {});
+      renderVoices();
+    });
 
     // ===== Summary =====
     function renderSummary() {
