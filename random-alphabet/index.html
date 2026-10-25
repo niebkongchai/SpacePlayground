@@ -99,6 +99,7 @@
     .mode .icon { font-size: 2rem; }
     .mode .name { font-size: 1.15rem; font-weight: 600; margin-top: 8px; }
     .mode .range { color: var(--muted); font-family: "Sarabun", sans-serif; margin-top: 4px; }
+    #mode-list h2:first-child { margin-top: 0; }
 
     .actions {
       display: flex;
@@ -376,7 +377,7 @@
       </header>
       <h1>🔤 Random Alphabet</h1>
       <p class="sub">Pick a mode, then press Start</p>
-      <div class="modes" id="mode-list"></div>
+      <div id="mode-list"></div>
       <div class="actions">
         <button class="btn" id="start-btn" disabled>▶ Start</button>
         <button class="btn ghost" data-go="summary">📊 Summary Result</button>
@@ -487,19 +488,31 @@
     const LOWER = range(97, 122).map(c => String.fromCharCode(c));
     // The 44 Thai consonants ก – ฮ (ฤ and ฦ are vowels, so they are left out)
     const THAI = [..."กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ"];
-    // Word for each consonant, used by the voice: ก → "กอ ไก่"
-    const THAI_WORDS = {
-      "ก": "ไก่", "ข": "ไข่", "ฃ": "ขวด", "ค": "ควาย", "ฅ": "คน", "ฆ": "ระฆัง", "ง": "งู",
-      "จ": "จาน", "ฉ": "ฉิ่ง", "ช": "ช้าง", "ซ": "โซ่", "ฌ": "เฌอ", "ญ": "หญิง",
-      "ฎ": "ชฎา", "ฏ": "ปฏัก", "ฐ": "ฐาน", "ฑ": "มณโฑ", "ฒ": "ผู้เฒ่า", "ณ": "เณร",
-      "ด": "เด็ก", "ต": "เต่า", "ถ": "ถุง", "ท": "ทหาร", "ธ": "ธง", "น": "หนู",
-      "บ": "ใบไม้", "ป": "ปลา", "ผ": "ผึ้ง", "ฝ": "ฝา", "พ": "พาน", "ฟ": "ฟัน", "ภ": "สำเภา", "ม": "ม้า",
-      "ย": "ยักษ์", "ร": "เรือ", "ล": "ลิง", "ว": "แหวน",
-      "ศ": "ศาลา", "ษ": "ฤๅษี", "ส": "เสือ", "ห": "หีบ", "ฬ": "จุฬา", "อ": "อ่าง", "ฮ": "นกฮูก",
+    // What the voice says for each consonant, spelled the way it is pronounced
+    // (e.g. ฆ → "คอ ระฆัง", ฑ → "ทอ มนโท") so text-to-speech reads it like a Thai speaker
+    const THAI_SPEECH = {
+      "ก": "กอ ไก่", "ข": "ขอ ไข่", "ฃ": "ขอ ขวด", "ค": "คอ ควาย", "ฅ": "คอ คน", "ฆ": "คอ ระฆัง", "ง": "งอ งู",
+      "จ": "จอ จาน", "ฉ": "ฉอ ฉิ่ง", "ช": "ชอ ช้าง", "ซ": "ซอ โซ่", "ฌ": "ชอ เชอ", "ญ": "ยอ หญิง",
+      "ฎ": "ดอ ชะดา", "ฏ": "ตอ ปะตัก", "ฐ": "ถอ ถาน", "ฑ": "ทอ มนโท", "ฒ": "ทอ ผู้เท่า", "ณ": "นอ เนน",
+      "ด": "ดอ เด็ก", "ต": "ตอ เต่า", "ถ": "ถอ ถุง", "ท": "ทอ ทะหาน", "ธ": "ทอ ธง", "น": "นอ หนู",
+      "บ": "บอ ใบไม้", "ป": "ปอ ปลา", "ผ": "ผอ ผึ้ง", "ฝ": "ฝอ ฝา", "พ": "พอ พาน", "ฟ": "ฟอ ฟัน", "ภ": "พอ สำเภา", "ม": "มอ ม้า",
+      "ย": "ยอ ยัก", "ร": "รอ เรือ", "ล": "ลอ ลิง", "ว": "วอ แหวน",
+      "ศ": "สอ สาลา", "ษ": "สอ รือสี", "ส": "สอ เสือ", "ห": "หอ หีบ", "ฬ": "ลอ จุลา", "อ": "ออ อ่าง", "ฮ": "ฮอ นกฮูก",
+    };
+
+    // Thai levels: 10 letters each, in alphabet order (level 5 = the last 4)
+    const thaiLevel = (n, icon) => {
+      const pool = THAI.slice((n - 1) * 10, n * 10);
+      return { icon, name: `Thai Level ${n}`, range: `${pool[0]} – ${pool[pool.length - 1]}`, pool, thai: true };
     };
 
     const MODES = {
-      thai:      { icon: "🐘", name: "Thai",              range: "ก – ฮ",           pool: THAI, thai: true },
+      thai1:     thaiLevel(1, "🐣"),
+      thai2:     thaiLevel(2, "🐥"),
+      thai3:     thaiLevel(3, "🐰"),
+      thai4:     thaiLevel(4, "🦁"),
+      thai5:     thaiLevel(5, "🐯"),
+      thai:      { icon: "🐘", name: "Thai (All)",        range: "ก – ฮ",           pool: THAI, thai: true },
       enEasy:    { icon: "🔠", name: "English (Easy)",    range: "A – Z",            pool: UPPER },
       enMedium:  { icon: "🔡", name: "English (Medium)",  range: "a – z",            pool: LOWER },
       enHard:    { icon: "🔤", name: "English (Hard)",    range: "A – Z and a – z",  pool: [...UPPER, ...LOWER] },
@@ -559,7 +572,22 @@
     // ===== Mode menu =====
     let selectedMode = null;
 
-    for (const [key, m] of Object.entries(MODES)) {
+    const MODE_GROUPS = [
+      { title: "🐘 ภาษาไทย Thai", keys: ["thai1", "thai2", "thai3", "thai4", "thai5", "thai"] },
+      { title: "🔤 English", keys: ["enEasy", "enMedium", "enHard"] },
+      { title: "🔢 Number", keys: ["numEasy", "numMedium", "numHard"] },
+    ];
+
+    for (const group of MODE_GROUPS) {
+      const title = document.createElement("h2");
+      title.textContent = group.title;
+      const grid = document.createElement("div");
+      grid.className = "modes";
+      $("mode-list").append(title, grid);
+      for (const key of group.keys) addModeButton(key, MODES[key], grid);
+    }
+
+    function addModeButton(key, m, grid) {
       const btn = document.createElement("button");
       btn.className = "mode";
       btn.dataset.mode = key;
@@ -570,7 +598,7 @@
         $("start-btn").disabled = false;
       });
       btn.addEventListener("dblclick", startGame);
-      $("mode-list").appendChild(btn);
+      grid.appendChild(btn);
     }
 
     $("start-btn").addEventListener("click", startGame);
@@ -667,10 +695,11 @@
         playOops();
       }
 
-      // Read the letter aloud after the sound effect, then show the next one
+      // Read the letter aloud twice (easier for kids to catch), then show the next one
       const thisGame = game;
-      const voice = sleep(correct ? 350 : 400).then(() => game === thisGame && speak(value, thisGame.mode));
-      await Promise.all([sleep(correct ? 900 : 450), Promise.race([voice, sleep(3500)])]);
+      const say = () => game === thisGame && speak(value, thisGame.mode);
+      const voice = sleep(correct ? 350 : 400).then(say).then(() => sleep(400)).then(say);
+      await Promise.all([sleep(correct ? 900 : 450), Promise.race([voice, sleep(7000)])]);
       if (game !== thisGame) return;
       if (won) return finishGame(true);
       busy = false;
@@ -954,8 +983,9 @@
         const u = new SpeechSynthesisUtterance(text);
         u.voice = voice;
         u.lang = voice.lang;
-        u.rate = 0.85;
-        u.pitch = 1.15;
+        // Natural pitch for Thai: raising it distorts the tones
+        u.rate = lang === "th" ? 0.8 : 0.85;
+        u.pitch = lang === "th" ? 1 : 1.15;
         u.onend = u.onerror = () => resolve();
         if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
         speechSynthesis.speak(u);
@@ -963,7 +993,7 @@
     }
 
     function speak(value, modeKey) {
-      if (MODES[modeKey].thai) return speakText(`${value}อ ${THAI_WORDS[value]}`, "th");
+      if (MODES[modeKey].thai) return speakText(THAI_SPEECH[value], "th");
       if (/^[a-z]$/.test(value)) return speakText(`small ${value.toUpperCase()}`, "en");
       if (/^[A-Z]$/.test(value)) return speakText(modeKey === "enHard" ? `big ${value}` : value, "en");
       return speakText(value, "en");
