@@ -607,7 +607,7 @@
       </header>
       <h1>🎙 Thai Voice</h1>
       <p class="sub">
-        อัดเสียงของคุณเองทีละตัว — เกมจะเล่นเสียงของคุณ 2 ครั้งแทนเสียงคอมพิวเตอร์<br>
+        อัดเสียงของคุณเองทีละตัว — เกมจะเล่นเสียงของคุณ 2 ครั้ง (ตัวที่ยังไม่ได้อัดจะไม่มีเสียง)<br>
         Tap 🎙 to record, tap ■ to stop (stops by itself after 5 s). Saved on this device only.
       </p>
       <p class="voice-msg" id="voice-msg" hidden></p>
@@ -644,13 +644,6 @@
       "ย": "ยักษ์", "ร": "เรือ", "ล": "ลิง", "ว": "แหวน",
       "ศ": "ศาลา", "ษ": "ฤๅษี", "ส": "เสือ", "ห": "หีบ", "ฬ": "จุฬา", "อ": "อ่าง", "ฮ": "นกฮูก",
     };
-    // Computer voice: say the letter on its own (it reads ก as "กอ"; writing "กอ" makes it
-    // spell out อ as "ออ อ่าง"), and respell words it misreads the way they are pronounced
-    const SPOKEN_WORDS = {
-      "ฌ": "เชอ", "ฎ": "ชะดา", "ฏ": "ปะตัก", "ฐ": "ถาน", "ฑ": "มนโท", "ฒ": "ผู้เท่า", "ณ": "เนน",
-      "ท": "ทะหาน", "ย": "ยัก", "ศ": "สาลา", "ษ": "รือสี", "ฬ": "จุลา",
-    };
-    const thaiSpeech = c => `${c} ${SPOKEN_WORDS[c] || THAI_WORDS[c]}`;
 
     // Thai levels: 10 letters each, in alphabet order (level 5 = the last 4)
     const thaiLevel = (n, icon) => {
@@ -668,8 +661,8 @@
       enEasy:    { icon: "🔠", name: "English (Easy)",    range: "A – Z",            pool: UPPER },
       enMedium:  { icon: "🔡", name: "English (Medium)",  range: "a – z",            pool: LOWER },
       enHard:    { icon: "🔤", name: "English (Hard)",    range: "A – Z and a – z",  pool: [...UPPER, ...LOWER] },
-      numEasy:   { icon: "1️⃣", name: "Number (Easy)",     range: "0 – 9",            pool: range(0, 9).map(String) },
-      numMedium: { icon: "🔢", name: "Number (Medium)",   range: "0 – 100",          pool: range(0, 100).map(String) },
+      numEasy:   { icon: "1️⃣", name: "Number (Easy)",     range: "0 – 10",           pool: range(0, 10).map(String) },
+      numMedium: { icon: "🔢", name: "Number (Medium)",   range: "11 – 20",          pool: range(11, 20).map(String) },
       numHard:   { icon: "🚀", name: "Number (Hard)",     range: "0 – 1000",         pool: range(0, 1000).map(String) },
     };
 
@@ -906,8 +899,7 @@
       setTimeout(flyRocket, 3200);
       playFanfare();
       setTimeout(() => {
-        if (MODES[modeKey].thai && voiceCache.has(WIN_KEY)) playRecording(WIN_KEY);
-        else if (MODES[modeKey].thai) speakText("เก่งมาก! หนูชนะแล้ว!", "th");
+        if (MODES[modeKey].thai) playRecording(WIN_KEY);
         else speakText("Congratulations! You are the winner!", "en");
       }, 2000);
     }
@@ -1182,8 +1174,8 @@
     }
 
     function speak(value, modeKey) {
-      if (MODES[modeKey].thai && voiceCache.has(value)) return playRecording(value);
-      if (MODES[modeKey].thai) return speakText(thaiSpeech(value), "th");
+      // Thai: only your own recordings, no computer voice
+      if (MODES[modeKey].thai) return playRecording(value);
       if (/^[a-z]$/.test(value)) return speakText(`small ${value.toUpperCase()}`, "en");
       if (/^[A-Z]$/.test(value)) return speakText(modeKey === "enHard" ? `big ${value}` : value, "en");
       return speakText(value, "en");
