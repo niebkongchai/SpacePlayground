@@ -8,7 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔤</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Mitr:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #05060f;
@@ -26,7 +26,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: "Fredoka", "Mitr", system-ui, sans-serif;
+      font-family: "Fredoka", "Sarabun", system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
@@ -98,7 +98,7 @@
     }
     .mode .icon { font-size: 2rem; }
     .mode .name { font-size: 1.15rem; font-weight: 600; margin-top: 8px; }
-    .mode .range { color: var(--muted); font-family: "Mitr", sans-serif; margin-top: 4px; }
+    .mode .range { color: var(--muted); font-family: "Sarabun", sans-serif; margin-top: 4px; }
 
     .actions {
       display: flex;
@@ -171,20 +171,75 @@
       padding: 12px 0;
     }
     .char {
-      font-family: "Fredoka", "Mitr", sans-serif;
+      font-family: "Fredoka", "Sarabun", sans-serif;
       font-weight: 700;
       line-height: 1;
       font-size: min(52vw, 48vh);
       text-shadow: 0 0 40px currentColor;
       user-select: none;
     }
-    .char.thai { font-family: "Mitr", sans-serif; font-weight: 500; }
+    /* Sarabun is a looped Thai font: letters keep their head circle (หัว), like school books */
+    .char.thai { font-family: "Sarabun", sans-serif; font-weight: 600; }
     .char.long { font-size: min(30vw, 34vh); }
     .char.pop { animation: pop 0.35s ease-out; }
     @keyframes pop {
       0% { transform: scale(0.6); opacity: 0; }
       70% { transform: scale(1.08); opacity: 1; }
       100% { transform: scale(1); }
+    }
+
+    /* ---------- Correct / incorrect effects ---------- */
+    .char.celebrate { animation: celebrate 0.8s ease-out; }
+    @keyframes celebrate {
+      0% { transform: scale(1); }
+      30% { transform: scale(1.25) rotate(-6deg); }
+      60% { transform: scale(0.95) rotate(4deg); }
+      100% { transform: scale(1) rotate(0); }
+    }
+    .char.shake { animation: shake 0.4s ease-in-out; }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-14px); }
+      75% { transform: translateX(14px); }
+    }
+
+    #fx {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .cheer {
+      position: fixed;
+      left: 50%;
+      top: 18%;
+      z-index: 11;
+      pointer-events: none;
+      opacity: 0;
+      white-space: nowrap;
+      font-size: clamp(2rem, 8vw, 4rem);
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 20px var(--accent-2), 0 0 40px var(--accent);
+    }
+    .cheer.show { animation: cheer 1s ease-out; }
+    @keyframes cheer {
+      0% { opacity: 0; transform: translate(-50%, 20px) scale(0.5); }
+      25% { opacity: 1; transform: translate(-50%, 0) scale(1.15); }
+      70% { opacity: 1; transform: translate(-50%, -10px) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
+    }
+
+    .answer button:disabled { opacity: 0.6; }
+    .sound-btn {
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 1.05rem;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      color: var(--text);
     }
 
     .answer {
@@ -238,7 +293,7 @@
       border-radius: 999px;
       background: rgba(255, 92, 108, 0.12);
       color: var(--bad);
-      font-family: "Fredoka", "Mitr", sans-serif;
+      font-family: "Fredoka", "Sarabun", sans-serif;
     }
     .chip b { font-size: 1.2rem; margin-right: 4px; }
     .empty { color: var(--muted); padding: 16px 0; }
@@ -251,7 +306,7 @@
       .pill { padding: 6px 12px; font-size: 0.95rem; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .char.pop { animation: none; }
+      .char.pop, .char.celebrate, .char.shake { animation: none; }
     }
   </style>
 </head>
@@ -283,6 +338,7 @@
           &nbsp;
           <span class="no">✘ <span id="no-count">0</span></span>
         </span>
+        <button class="sound-btn" id="sound-btn" aria-label="Toggle sound">🔊</button>
         <button class="stop" id="stop-btn">■ Stop</button>
       </div>
       <div class="stage">
@@ -358,6 +414,9 @@
     </section>
 
   </div>
+
+  <canvas id="fx"></canvas>
+  <div class="cheer" id="cheer"></div>
 
   <script>
     // ===== Modes =====
@@ -460,6 +519,8 @@
       $("ok-count").textContent = "0";
       $("no-count").textContent = "0";
       $("timer").textContent = "00:00";
+      busy = false;
+      setAnswerButtons(true);
       clearInterval(timerId);
       timerId = setInterval(() => {
         $("timer").textContent = fmtTime(elapsedSec());
@@ -488,14 +549,167 @@
       el.classList.add("pop");
     }
 
+    let busy = false; // true while an effect plays, so one tap = one answer
+
+    function setAnswerButtons(enabled) {
+      $("correct-btn").disabled = !enabled;
+      $("incorrect-btn").disabled = !enabled;
+    }
+
     function answer(correct) {
-      if (!game) return;
+      if (!game || busy) return;
       game.turns.push({ value: game.current, correct, atSec: elapsedSec() });
       const ok = game.turns.filter(t => t.correct).length;
       $("ok-count").textContent = ok;
       $("no-count").textContent = game.turns.length - ok;
-      nextChar();
+
+      const el = $("char");
+      el.classList.remove("pop", "celebrate", "shake");
+      void el.offsetWidth;
+      if (correct) {
+        el.classList.add("celebrate");
+        burst();
+        showCheer();
+        playYay();
+      } else {
+        el.classList.add("shake");
+        playOops();
+      }
+
+      busy = true;
+      setAnswerButtons(false);
+      const thisGame = game;
+      setTimeout(() => {
+        if (game !== thisGame) return;
+        busy = false;
+        setAnswerButtons(true);
+        nextChar();
+      }, correct ? 900 : 450);
     }
+
+    // ===== Effects: cheer text, confetti, sounds =====
+    const CHEERS = ["เก่งมาก! 🎉", "Great job! ⭐", "Yay! 🥳", "ถูกต้อง! 🌟", "Awesome! 🚀", "Super! 🌈", "เยี่ยมเลย! 💫"];
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function showCheer() {
+      const el = $("cheer");
+      el.textContent = CHEERS[Math.floor(Math.random() * CHEERS.length)];
+      el.classList.remove("show");
+      void el.offsetWidth;
+      el.classList.add("show");
+    }
+
+    const fx = $("fx");
+    const fctx = fx.getContext("2d");
+    let parts = [];
+    let fxRunning = false;
+
+    function sizeFx() {
+      fx.width = window.innerWidth * devicePixelRatio;
+      fx.height = window.innerHeight * devicePixelRatio;
+    }
+    window.addEventListener("resize", sizeFx);
+    sizeFx();
+
+    function burst() {
+      if (reduceMotion) return;
+      const dpr = devicePixelRatio;
+      const r = $("char").getBoundingClientRect();
+      const cx = (r.left + r.width / 2) * dpr;
+      const cy = (r.top + r.height / 2) * dpr;
+      const EMOJI = ["⭐", "🌟", "✨", "🎈", "💖", "🪐"];
+      for (let i = 0; i < 90; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = (4 + Math.random() * 10) * dpr;
+        parts.push({
+          x: cx, y: cy,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 4 * dpr,
+          g: 0.25 * dpr,
+          rot: Math.random() * Math.PI,
+          vr: (Math.random() - 0.5) * 0.3,
+          size: (6 + Math.random() * 6) * dpr,
+          color: COLORS[Math.floor(Math.random() * COLORS.length)],
+          emoji: i < 14 ? EMOJI[Math.floor(Math.random() * EMOJI.length)] : null,
+          life: 0,
+          max: 70 + Math.random() * 40,
+        });
+      }
+      if (!fxRunning) {
+        fxRunning = true;
+        requestAnimationFrame(tickFx);
+      }
+    }
+
+    function tickFx() {
+      fctx.clearRect(0, 0, fx.width, fx.height);
+      parts = parts.filter(p => p.life < p.max);
+      for (const p of parts) {
+        p.life++;
+        p.vx *= 0.98;
+        p.vy = p.vy * 0.98 + p.g;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vr;
+        fctx.save();
+        fctx.globalAlpha = 1 - p.life / p.max;
+        fctx.translate(p.x, p.y);
+        fctx.rotate(p.rot);
+        if (p.emoji) {
+          fctx.font = `${p.size * 3}px serif`;
+          fctx.textAlign = "center";
+          fctx.textBaseline = "middle";
+          fctx.fillText(p.emoji, 0, 0);
+        } else {
+          fctx.fillStyle = p.color;
+          fctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        }
+        fctx.restore();
+      }
+      if (parts.length) requestAnimationFrame(tickFx);
+      else fxRunning = false;
+    }
+
+    // Sounds are generated in the browser (no audio files needed)
+    const SOUND_KEY = STORE_KEY + ".sound";
+    let soundOn = true;
+    try { soundOn = localStorage.getItem(SOUND_KEY) !== "off"; } catch (e) {}
+    let audioCtx = null;
+
+    function updateSoundBtn() {
+      $("sound-btn").textContent = soundOn ? "🔊" : "🔇";
+    }
+    updateSoundBtn();
+    $("sound-btn").addEventListener("click", () => {
+      soundOn = !soundOn;
+      try { localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off"); } catch (e) {}
+      updateSoundBtn();
+    });
+
+    function playNotes(notes, type, volume) {
+      if (!soundOn) return;
+      try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const t0 = audioCtx.currentTime;
+        notes.forEach(([freq, start, len]) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.0001, t0 + start);
+          gain.gain.exponentialRampToValueAtTime(volume, t0 + start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t0 + start + len);
+          osc.connect(gain).connect(audioCtx.destination);
+          osc.start(t0 + start);
+          osc.stop(t0 + start + len + 0.05);
+        });
+      } catch (e) {}
+    }
+
+    // Happy rising "ta-da": C5 E5 G5 C6
+    const playYay = () => playNotes([[523.25, 0, 0.3], [659.25, 0.09, 0.3], [783.99, 0.18, 0.3], [1046.5, 0.27, 0.5]], "triangle", 0.25);
+    // Soft, gentle "boop" — not scary
+    const playOops = () => playNotes([[392, 0, 0.18], [311.13, 0.14, 0.25]], "sine", 0.15);
 
     $("correct-btn").addEventListener("click", () => answer(true));
     $("incorrect-btn").addEventListener("click", () => answer(false));
