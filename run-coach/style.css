@@ -1,0 +1,166 @@
+:root {
+  --bg: #05060f;
+  --text: #e8eaff;
+  --muted: #9aa0c7;
+  --faint: #6d7299;
+  --card: rgba(20, 24, 54, 0.6);
+  --card-solid: #11142e;
+  --card-border: rgba(140, 150, 255, 0.18);
+  --grid: rgba(140, 150, 255, 0.12);
+  --accent: #7c8cff;
+  --accent-2: #c77dff;
+  --glow: rgba(124, 140, 255, 0.45);
+
+  /* Data series (validated dark-surface categorical order) */
+  --run: #3987e5;
+  --trail: #d95926;
+  --walk: #199e70;
+  --hike: #c98500;
+  --other: #8a8fb3;
+
+  /* Status: only for good / caution / bad meaning */
+  --good: #2ecc71;
+  --warn: #f5b942;
+  --bad: #ff5c6c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(ellipse at 20% 10%, rgba(124, 140, 255, 0.16), transparent 50%),
+    radial-gradient(ellipse at 85% 30%, rgba(199, 125, 255, 0.14), transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(60, 200, 255, 0.10), transparent 60%);
+  background-attachment: fixed;
+}
+
+#stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 20px 0;
+}
+
+.logo {
+  font-family: "Orbitron", sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  text-decoration: none;
+}
+.logo small { color: var(--muted); font-family: "Inter", sans-serif; font-weight: 500; letter-spacing: 0; }
+
+h1, h2, h3 { font-weight: 600; }
+h1 {
+  font-family: "Orbitron", sans-serif;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  background: linear-gradient(90deg, #ffffff, var(--accent) 50%, var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+h2 {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  padding: 20px;
+  backdrop-filter: blur(8px);
+}
+
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 24px;
+  border-radius: 999px;
+  border: 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: #fff;
+  font: 600 0.95rem "Inter", sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 0 24px var(--glow);
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+.btn:hover { transform: translateY(-2px); box-shadow: 0 0 36px var(--glow); }
+.btn:disabled { opacity: 0.55; cursor: wait; transform: none; }
+.btn.ghost {
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  box-shadow: none;
+}
+.btn.ghost:hover { border-color: var(--accent); }
+.btn.sm { padding: 7px 14px; font-size: 0.85rem; }
+
+input, select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  background: rgba(5, 6, 15, 0.6);
+  color: var(--text);
+  font: 400 1rem "Inter", sans-serif;
+}
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+label { display: block; font-size: 0.9rem; color: var(--muted); margin-bottom: 6px; }
+
+.seg { display: inline-flex; border: 1px solid var(--card-border); border-radius: 999px; padding: 3px; gap: 2px; background: rgba(5,6,15,0.5); }
+.seg button {
+  border: 0; background: transparent; color: var(--muted);
+  font: 600 0.85rem "Inter", sans-serif; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: rgba(124, 140, 255, 0.22); color: var(--text); }
+
+.alert {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  border: 1px solid;
+}
+.alert.error { border-color: rgba(255, 92, 108, 0.5); background: rgba(255, 92, 108, 0.1); }
+.alert.info { border-color: var(--card-border); background: rgba(124, 140, 255, 0.08); color: var(--muted); }
+
+code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.85em;
+  background: rgba(124, 140, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

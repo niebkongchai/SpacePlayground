@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Run Coach</title>
+  <meta name="description" content="Run Coach — connect your Garmin account and get running analysis and coaching.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏃</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .connect {
+      max-width: 560px;
+      margin: 40px auto 0;
+    }
+    .orbit {
+      width: 96px; height: 96px; margin: 0 auto 24px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 2.6rem;
+      background: radial-gradient(circle at 30% 30%, #b9c2ff, #6f5bff 45%, #2a1a6e 80%);
+      box-shadow: 0 0 50px var(--glow), inset -12px -12px 30px rgba(0, 0, 0, 0.45);
+      animation: float 6s ease-in-out infinite;
+    }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    .connect h1 { text-align: center; font-size: clamp(2rem, 7vw, 3rem); }
+    .connect .lead { text-align: center; color: var(--muted); margin: 12px auto 28px; line-height: 1.6; max-width: 460px; }
+    form { display: grid; gap: 16px; }
+    .row { display: grid; grid-template-columns: 1fr 150px; gap: 12px; }
+    .key-wrap { position: relative; }
+    .key-wrap input { padding-right: 70px; }
+    .key-wrap button {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      border: 0; background: transparent; color: var(--muted); font: 600 0.8rem "Inter", sans-serif; cursor: pointer; padding: 6px;
+    }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .actions .btn { flex: 1 1 180px; }
+    ol.steps { margin: 4px 0 0 20px; line-height: 1.8; color: var(--muted); font-size: 0.92rem; }
+    ol.steps a { color: var(--accent); }
+    details summary { cursor: pointer; color: var(--text); font-weight: 600; font-size: 0.95rem; }
+    details[open] summary { margin-bottom: 8px; }
+    .privacy { display: flex; gap: 10px; align-items: flex-start; }
+    #msg:empty { display: none; }
+    @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <canvas id="stars"></canvas>
+  <div class="wrap">
+    <header>
+      <a href="../" class="logo">🪐 SpacePlayground <small>/ Run Coach</small></a>
+    </header>
+
+    <main class="connect">
+      <div class="orbit" aria-hidden="true">🏃</div>
+      <h1>Run Coach</h1>
+      <p class="lead">Connect your Garmin account to see your running, walking, trail and hiking data with recovery, heart-rate zones, sleep and coaching tips in one place.</p>
+
+      <div class="card">
+        <form id="form" autocomplete="off">
+          <div class="row">
+            <div>
+              <label for="key">Garmin Personal API key</label>
+              <div class="key-wrap">
+                <input id="key" type="password" placeholder="GCDC_…" required spellcheck="false" autocapitalize="off">
+                <button type="button" id="show" aria-pressed="false">Show</button>
+              </div>
+            </div>
+            <div>
+              <label for="region">Account region</label>
+              <select id="region">
+                <option value="global">Global</option>
+                <option value="china">China</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="msg" role="alert"></div>
+
+          <div class="actions">
+            <button class="btn" type="submit" id="go">🚀 Connect</button>
+            <a class="btn ghost" href="dashboard.html?demo">Try with demo data</a>
+          </div>
+
+          <details>
+            <summary>How do I get a key?</summary>
+            <ol class="steps">
+              <li>Sign in to <a href="https://connect.garmin.com/" target="_blank" rel="noopener">Garmin Connect</a> on the web.</li>
+              <li>Open the <strong>Personal API Key</strong> page and choose <strong>Create Key</strong>.</li>
+              <li>Accept the terms and pick an expiry (30 days to 1 year).</li>
+              <li>Copy the key right away. Garmin only shows it once.</li>
+            </ol>
+            <p class="small muted" style="margin-top:8px">More in the <a style="color:var(--accent)" href="https://developer.garmin.com/gc-developer-program/personal/personal-faq/" target="_blank" rel="noopener">Personal API FAQ</a>.</p>
+          </details>
+
+          <div class="alert info privacy small">
+            <span aria-hidden="true">🔒</span>
+            <span>Your key goes only to the Run Coach server on this computer. The server swaps it for a 24-hour Garmin access token, keeps both in memory (never on disk) and only reads data. Disconnecting or stopping the server forgets them.</span>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script src="stars.js"></script>
+  <script src="api.js"></script>
+  <script>
+    const form = document.getElementById("form");
+    const keyEl = document.getElementById("key");
+    const msg = document.getElementById("msg");
+    const go = document.getElementById("go");
+    const show = document.getElementById("show");
+
+    function say(html, kind = "error") {
+      msg.className = "alert " + kind;
+      msg.innerHTML = html;
+    }
+
+    show.addEventListener("click", () => {
+      const visible = keyEl.type === "text";
+      keyEl.type = visible ? "password" : "text";
+      show.textContent = visible ? "Show" : "Hide";
+      show.setAttribute("aria-pressed", String(!visible));
+    });
+
+    // Already connected? Go straight in. No server? Explain how to start it.
+    RC.api.session().then(() => location.replace("dashboard.html")).catch((e) => {
+      if (e.status === 401) return;
+      RC.api.health().catch(() => say(
+        "The Run Coach server isn't running, so only demo data works here. To use your Garmin data, run this in the SpacePlayground folder and open the link it prints:<br><code>node run-coach/server/server.js</code>",
+        "info"));
+    });
+
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const key = keyEl.value.trim();
+      if (!key) return;
+      go.disabled = true;
+      go.textContent = "Connecting…";
+      msg.textContent = "";
+      try {
+        await RC.api.connect(key, document.getElementById("region").value);
+        keyEl.value = "";
+        location.href = "dashboard.html";
+      } catch (e) {
+        const text = !e.status || e.status === 404 || e.status === 405
+          ?"Can't reach the Run Coach server. Start it with <code>node run-coach/server/server.js</code>."
+          : e.message;
+        say(text);
+        go.disabled = false;
+        go.textContent = "🚀 Connect";
+      }
+    });
+  </script>
+</body>
+</html>

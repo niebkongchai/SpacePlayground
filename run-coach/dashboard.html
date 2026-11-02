@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Run Coach Dashboard</title>
+  <meta name="description" content="Run Coach — your Garmin running, recovery, sleep and heart-rate data with coaching.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏃</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .who { color: var(--muted); font-size: 0.9rem; }
+    .who strong { color: var(--text); font-weight: 600; }
+    .demo-badge { font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: rgba(245, 185, 66, 0.15); color: var(--warn); }
+
+    section { margin-top: 22px; }
+    .sub { color: var(--muted); font-size: 0.88rem; margin: -8px 0 14px; }
+
+    #loading { text-align: center; padding: 80px 0; color: var(--muted); }
+    .spinner { width: 46px; height: 46px; margin: 0 auto 16px; border-radius: 50%; border: 3px solid var(--card-border); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #warnings:empty { display: none; }
+    #warnings { margin-top: 12px; }
+
+    /* Hero: readiness + KPIs */
+    .hero { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 18px; }
+    .ready { display: flex; flex-direction: column; gap: 14px; }
+    .ready-top { display: flex; align-items: center; gap: 18px; }
+    .ring { position: relative; width: 112px; height: 112px; flex: none; }
+    .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .ring .val { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+    .ring .val b { font: 700 2rem "Orbitron", sans-serif; display: block; line-height: 1; }
+    .ring .val span { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.06em; }
+    .ready h3 { font-size: 1.15rem; }
+    .recov { font-size: 0.9rem; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+    .recov strong { color: var(--text); }
+    .factors { list-style: none; display: grid; gap: 8px; }
+    .factors li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 0.88rem; }
+    .factors .f-note { grid-column: 1 / -1; color: var(--faint); font-size: 0.78rem; }
+    .meter { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: rgba(140,150,255,0.12); overflow: hidden; }
+    .meter i { display: block; height: 100%; border-radius: 3px; }
+
+    .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-content: start; }
+    .kpi { padding: 14px 16px; }
+    .kpi .k-label { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.02em; }
+    .kpi .k-val { font: 600 1.45rem "Inter", sans-serif; margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .kpi .k-val small { font-size: 0.8rem; color: var(--muted); font-weight: 500; margin-left: 2px; }
+    .kpi .k-sub { font-size: 0.76rem; color: var(--faint); margin-top: 2px; }
+
+    /* Status chips: always icon + word, never colour alone */
+    .status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 600; padding: 2px 9px 2px 6px; border-radius: 999px; white-space: nowrap; }
+    .status::before { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 0.65rem; color: #05060f; }
+    .status.good { color: var(--good); background: rgba(46, 204, 113, 0.12); } .status.good::before { content: "✓"; background: var(--good); }
+    .status.warn { color: var(--warn); background: rgba(245, 185, 66, 0.12); } .status.warn::before { content: "!"; background: var(--warn); }
+    .status.bad { color: var(--bad); background: rgba(255, 92, 108, 0.12); } .status.bad::before { content: "✕"; background: var(--bad); }
+    .status.info { color: var(--accent); background: rgba(124, 140, 255, 0.14); } .status.info::before { content: "i"; background: var(--accent); }
+
+    /* Coach */
+    .insights { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+    .insight { padding: 16px; }
+    .insight h3 { font-size: 1rem; margin: 8px 0 6px; }
+    .insight p { color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
+
+    /* Plan */
+    .plan { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+    .day { padding: 14px; display: flex; flex-direction: column; gap: 6px; border-top: 3px solid transparent; }
+    .day.today { border-color: var(--card-border); box-shadow: inset 0 0 0 1px var(--accent); }
+    .day .d-name { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .day .d-title { font-weight: 600; font-size: 0.98rem; }
+    .day .d-detail { font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
+    .day.long { border-top-color: var(--run); } .day.quality { border-top-color: var(--accent-2); }
+    .day.easy { border-top-color: var(--walk); } .day.rest { border-top-color: rgba(140,150,255,0.25); }
+    .plan-sum { color: var(--muted); font-size: 0.88rem; margin-bottom: 12px; }
+
+    /* Charts */
+    .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .chart-card h3 { font-size: 0.98rem; }
+    .chart-card .c-sub { font-size: 0.8rem; color: var(--faint); margin: 2px 0 10px; }
+    .chart-box { position: relative; height: 240px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+    .empty { display: grid; place-items: center; height: 100%; color: var(--faint); font-size: 0.9rem; text-align: center; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+    th { text-align: left; font-weight: 600; color: var(--muted); font-size: 0.78rem; padding: 8px 10px; border-bottom: 1px solid var(--card-border); white-space: nowrap; }
+    td { padding: 10px; border-bottom: 1px solid rgba(140, 150, 255, 0.08); }
+    td.num, th.num { text-align: right; }
+    .table-scroll { overflow-x: auto; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .filters input { max-width: 240px; padding: 8px 12px; font-size: 0.9rem; }
+    .chip { border: 1px solid var(--card-border); background: transparent; color: var(--muted); font: 600 0.82rem "Inter", sans-serif; padding: 6px 12px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: rgba(124, 140, 255, 0.14); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+    tr.act { cursor: pointer; }
+    tr.act:hover td { background: rgba(124, 140, 255, 0.06); }
+    tr.act td:first-child { white-space: nowrap; }
+    .a-name { display: flex; align-items: center; gap: 8px; }
+    .a-name small { color: var(--faint); }
+    tr.detail td { background: rgba(5, 6, 15, 0.35); padding: 16px; }
+    .detail-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 18px; }
+    .detail-grid ul { margin-left: 18px; color: var(--muted); line-height: 1.6; font-size: 0.88rem; }
+    .zbar { display: flex; height: 12px; border-radius: 4px; overflow: hidden; gap: 2px; margin: 6px 0 4px; }
+    .zbar i { display: block; height: 100%; }
+    .zlegend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.75rem; color: var(--faint); }
+    .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-top: 12px; }
+    .stats div { font-size: 0.75rem; color: var(--faint); }
+    .stats b { display: block; font-size: 0.95rem; color: var(--text); font-weight: 600; }
+    .more { margin-top: 12px; text-align: center; }
+
+    footer { text-align: center; color: var(--faint); font-size: 0.8rem; padding: 40px 0 0; line-height: 1.6; }
+    footer a { color: var(--accent); }
+
+    @media (max-width: 1000px) {
+      .hero { grid-template-columns: 1fr; }
+      .plan { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    }
+    @media (max-width: 760px) {
+      .charts, .two, .detail-grid { grid-template-columns: 1fr; }
+      .hide-sm { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stars"></canvas>
+  <div class="wrap">
+    <header>
+      <a href="../" class="logo">🪐 SpacePlayground <small>/ Run Coach</small></a>
+      <div class="toolbar">
+        <span class="who" id="who"></span>
+        <div class="seg" role="group" aria-label="Time range" id="range">
+          <button data-days="7">7D</button>
+          <button data-days="30">30D</button>
+          <button data-days="90">90D</button>
+          <button data-days="180">6M</button>
+        </div>
+        <button class="btn ghost sm" id="refresh" title="Reload data from Garmin">↻</button>
+        <button class="btn ghost sm" id="logout">Disconnect</button>
+      </div>
+    </header>
+
+    <div id="loading"><div class="spinner"></div><div id="loading-text">Loading your Garmin data…</div></div>
+    <div id="warnings"></div>
+
+    <main id="app" hidden>
+      <section class="hero">
+        <div class="card ready" id="readiness"></div>
+        <div class="kpis" id="kpis"></div>
+      </section>
+
+      <section>
+        <h2>Coach</h2>
+        <p class="sub">What your data says, most important first.</p>
+        <div class="insights" id="insights"></div>
+      </section>
+
+      <section>
+        <h2>Next 7 days</h2>
+        <p class="plan-sum" id="plan-sum"></p>
+        <div class="plan" id="plan"></div>
+      </section>
+
+      <section>
+        <h2>Trends</h2>
+        <div class="charts">
+          <div class="card chart-card"><h3>Distance by activity</h3><p class="c-sub" id="dist-sub"></p><div class="legend" id="dist-legend"></div><div class="chart-box"><canvas id="c-dist"></canvas></div></div>
+          <div class="card chart-card"><h3>Heart-rate zones (runs)</h3><p class="c-sub" id="zone-sub"></p><div class="chart-box"><canvas id="c-zones"></canvas></div></div>
+          <div class="card chart-card"><h3>Run pace</h3><p class="c-sub">Moving pace per run · higher is faster</p><div class="legend" id="pace-legend"></div><div class="chart-box"><canvas id="c-pace"></canvas></div></div>
+          <div class="card chart-card"><h3>VO2max (estimate)</h3><p class="c-sub">From run pace vs heart rate. Garmin's own VO2max isn't in the Personal API.</p><div class="legend" id="vo2-legend"></div><div class="chart-box"><canvas id="c-vo2"></canvas></div></div>
+          <div class="card chart-card"><h3>Training load per week</h3><p class="c-sub">Garmin training load, all activities</p><div class="chart-box"><canvas id="c-load"></canvas></div></div>
+          <div class="card chart-card"><h3>Resting heart rate</h3><p class="c-sub">Lower over time = fitter. Sudden rises = stress or illness.</p><div class="chart-box"><canvas id="c-rhr"></canvas></div></div>
+          <div class="card chart-card"><h3>Overnight HRV</h3><p class="c-sub">Shaded band = your balanced baseline</p><div class="chart-box"><canvas id="c-hrv"></canvas></div></div>
+          <div class="card chart-card"><h3>Sleep</h3><p class="c-sub">Hours per night by stage</p><div class="legend" id="sleep-legend"></div><div class="chart-box"><canvas id="c-sleep"></canvas></div></div>
+          <div class="card chart-card"><h3>Steps</h3><p class="c-sub">Daily steps vs your goal</p><div class="legend" id="steps-legend"></div><div class="chart-box"><canvas id="c-steps"></canvas></div></div>
+          <div class="card chart-card"><h3>Body Battery</h3><p class="c-sub">Daily high and low</p><div class="legend" id="bb-legend"></div><div class="chart-box"><canvas id="c-bb"></canvas></div></div>
+        </div>
+      </section>
+
+      <section class="two">
+        <div class="card">
+          <h2>Best efforts</h2>
+          <p class="sub" id="best-sub"></p>
+          <div class="table-scroll"><table id="best"></table></div>
+        </div>
+        <div class="card">
+          <h2>Race predictions</h2>
+          <p class="sub">From your best effort nearest each distance (Riegel formula). Assumes you've trained for that distance.</p>
+          <div class="table-scroll"><table id="predict"></table></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Activities</h2>
+        <div class="filters" id="filters"></div>
+        <div class="table-scroll"><table id="acts"></table></div>
+        <div class="more"><button class="btn ghost sm" id="more" hidden>Show more</button></div>
+      </section>
+    </main>
+
+    <footer>
+      Data from the Garmin Connect Personal API. Recovery, readiness, VO2max, plans and tips are Run Coach estimates, not Garmin's or medical advice.<br>
+      <a href="../">Back to SpacePlayground</a>
+    </footer>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="stars.js"></script>
+  <script src="api.js"></script>
+  <script src="coach.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>
