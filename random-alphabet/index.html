@@ -424,6 +424,91 @@
     .correct { background: var(--good); box-shadow: 0 6px 0 #1e8a4c; }
     .incorrect { background: var(--bad); box-shadow: 0 6px 0 #b83a47; }
 
+    /* ---------- Count Emoji: pictures on the left, number choices on the right ---------- */
+    .count-stage {
+      display: none;
+      flex: 1;
+      grid-template-columns: 3fr 2fr;
+      gap: 24px;
+      align-items: center;
+      padding: 12px 0;
+    }
+    #game.count-mode .count-stage { display: grid; }
+    #game.count-mode .stage, #game.count-mode .answer { display: none; }
+    .emoji-box {
+      display: grid;
+      grid-template-columns: repeat(5, 1.2em);
+      grid-auto-rows: 1.2em;
+      place-items: center;
+      justify-content: center;
+      align-content: center;
+      gap: 8px 12px;
+      min-height: min(46vh, 380px);
+      padding: 20px;
+      border-radius: 24px;
+      background: var(--card);
+      border: 2px dashed var(--card-border);
+      font-size: min(8vw, 10vh, 80px);
+      line-height: 1.15;
+      user-select: none;
+    }
+    .emoji-box span { position: relative; cursor: pointer; animation: pop 0.35s ease-out both; }
+    /* Tapped while counting: a number badge 1, 2, 3 ... */
+    .emoji-box span[data-k]::after {
+      content: attr(data-k);
+      position: absolute;
+      top: -0.15em;
+      right: -0.2em;
+      min-width: 1.5em;
+      padding: 0.1em 0.3em;
+      border-radius: 999px;
+      font-family: "Fredoka", sans-serif;
+      font-size: 0.34em;
+      font-weight: 700;
+      line-height: 1.2;
+      text-align: center;
+      color: #fff;
+      background: var(--accent-2);
+      box-shadow: 0 0 10px var(--accent-2);
+    }
+    .emoji-box.celebrate { animation: celebrate 0.8s ease-out; }
+    .emoji-box.shake { animation: shake 0.4s ease-in-out; }
+    .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .choices button {
+      min-height: min(18vh, 150px);
+      border-radius: 22px;
+      font-size: clamp(2.6rem, 9vw, 4.5rem);
+      font-weight: 700;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.06);
+      border: 3px solid var(--c);
+      box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45);
+      text-shadow: 0 0 18px var(--c);
+      transition: transform 0.1s, background 0.2s, opacity 0.2s;
+    }
+    .choices button:active { transform: scale(0.95); }
+    .choices button:disabled { cursor: default; }
+    .choices button:disabled:not(.right):not(.wrong):not(.reveal) { opacity: 0.35; }
+    .choices button.right {
+      background: var(--good);
+      border-color: var(--good);
+      box-shadow: 0 6px 0 #1e8a4c, 0 0 30px var(--good);
+      animation: celebrate 0.6s ease-out;
+    }
+    .choices button.wrong {
+      background: var(--bad);
+      border-color: var(--bad);
+      box-shadow: 0 6px 0 #b83a47;
+      animation: shake 0.4s ease-in-out;
+    }
+    /* After a wrong pick, the right number glows green so the kid sees it */
+    .choices button.reveal { border-color: var(--good); box-shadow: 0 0 24px var(--good); }
+    @media (max-width: 640px) {
+      .count-stage { grid-template-columns: 1fr; gap: 14px; align-content: center; }
+      .emoji-box { min-height: 30vh; font-size: min(13vw, 8vh); padding: 14px; }
+      .choices button { min-height: 13vh; }
+    }
+
     /* ---------- Result ---------- */
     .result-card {
       max-width: 480px;
@@ -471,7 +556,8 @@
       .pill { padding: 6px 12px; font-size: 0.95rem; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .char.pop, .char.celebrate, .char.shake, .trophy, .goal.near, .slot.just { animation: none; }
+      .char.pop, .char.celebrate, .char.shake, .trophy, .goal.near, .slot.just,
+      .emoji-box span, .emoji-box.celebrate, .emoji-box.shake, .choices button { animation: none; }
     }
   </style>
 </head>
@@ -528,6 +614,10 @@
       <div class="answer">
         <button class="correct" id="correct-btn">✔ Correct</button>
         <button class="incorrect" id="incorrect-btn">✘ Incorrect</button>
+      </div>
+      <div class="count-stage">
+        <div class="emoji-box" id="emoji-box"></div>
+        <div class="choices" id="choices"></div>
       </div>
     </section>
 
@@ -664,6 +754,7 @@
       numEasy:   { icon: "1️⃣", name: "Number (Easy)",     range: "0 – 10",           pool: range(0, 10).map(String) },
       numMedium: { icon: "🔢", name: "Number (Medium)",   range: "0 – 20",           pool: range(0, 20).map(String) },
       numHard:   { icon: "🚀", name: "Number (Hard)",     range: "0 – 100",          pool: range(0, 100).map(String) },
+      numCount:  { icon: "🍎", name: "Count Emoji",       range: "0 – 10 · pick 1 of 4", pool: range(0, 10).map(String), count: true },
     };
 
     const COLORS = ["#ffd166", "#06d6a0", "#4cc9f0", "#f72585", "#b8f2e6", "#ff9f1c", "#c77dff", "#90f1ef", "#ffadad"];
@@ -722,7 +813,7 @@
     const MODE_GROUPS = [
       { title: "🐘 ภาษาไทย Thai", keys: ["thai1", "thai2", "thai3", "thai4", "thai5", "thai"] },
       { title: "🔤 English", keys: ["enEasy", "enMedium", "enHard"] },
-      { title: "🔢 Number", keys: ["numEasy", "numMedium", "numHard"] },
+      { title: "🔢 Number", keys: ["numEasy", "numMedium", "numHard", "numCount"] },
     ];
 
     for (const group of MODE_GROUPS) {
@@ -765,6 +856,7 @@
         // Characters not yet answered correctly; a correct one is removed so it won't come back
         remaining: new Set(MODES[selectedMode].pool),
       };
+      $("game").classList.toggle("count-mode", !!MODES[selectedMode].count);
       buildJourney();
       $("game-mode").textContent = `${MODES[selectedMode].icon} ${MODES[selectedMode].name}`;
       $("ok-count").textContent = "0";
@@ -830,6 +922,7 @@
         value = pool[Math.floor(Math.random() * pool.length)];
       } while (value === game.current && pool.length > 1);
       game.current = value;
+      if (mode.count) return renderCount(value);
 
       const el = $("char");
       el.textContent = value;
@@ -844,14 +937,73 @@
     function setAnswerButtons(enabled) {
       $("correct-btn").disabled = !enabled;
       $("incorrect-btn").disabled = !enabled;
+      document.querySelectorAll("#choices button").forEach(b => (b.disabled = !enabled));
+    }
+
+    // ===== Count Emoji: count the pictures, then tap the right number =====
+    const COUNT_EMOJI = ["🍎", "🐶", "🐱", "🦆", "🍓", "⭐", "🚗", "🎈", "🐟", "🍌", "🐸", "🦋", "🐥", "🍩", "🌸", "🐞"];
+    const isCountGame = () => !!(game && MODES[game.mode].count);
+    const shuffle = arr => arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
+
+    function renderCount(value) {
+      const n = Number(value);
+      let emoji;
+      do emoji = COUNT_EMOJI[Math.floor(Math.random() * COUNT_EMOJI.length)];
+      while (emoji === game.emoji);
+      game.emoji = emoji;
+
+      // A random emoji in random spots of a 5 x 3 grid every turn, so neither the picture
+      // nor the shape gives the number away: the kid has to count
+      const box = $("emoji-box");
+      box.classList.remove("celebrate", "shake");
+      box.innerHTML = "";
+      game.tapped = 0;
+      const spots = new Set(shuffle(range(0, 14)).slice(0, n));
+      let shown = 0;
+      for (let i = 0; i < 15; i++) {
+        const s = document.createElement("span");
+        box.appendChild(s);
+        if (!spots.has(i)) continue;
+        s.textContent = emoji;
+        s.style.animationDelay = shown++ * 70 + "ms";
+        // Tap each picture to count it out loud: 1, 2, 3 ...
+        s.addEventListener("click", () => {
+          if (!game || busy || s.dataset.k) return;
+          s.dataset.k = ++game.tapped;
+          playNotes([[440 + game.tapped * 45, 0, 0.12]], "sine", 0.12);
+          speakText(String(game.tapped), "en");
+        });
+      }
+
+      // The right number plus 3 others from the pool, in random order
+      const others = shuffle(MODES[game.mode].pool.map(Number).filter(x => x !== n)).slice(0, 3);
+      const wrap = $("choices");
+      wrap.innerHTML = "";
+      for (const c of shuffle([n, ...others])) {
+        const btn = document.createElement("button");
+        btn.textContent = c;
+        btn.dataset.n = c;
+        btn.style.setProperty("--c", COLORS[c % COLORS.length]);
+        btn.addEventListener("click", () => pickChoice(btn, c));
+        wrap.appendChild(btn);
+      }
+    }
+
+    function pickChoice(btn, n) {
+      if (!game || busy) return;
+      const correct = n === Number(game.current);
+      btn.classList.add(correct ? "right" : "wrong");
+      if (!correct) $("choices").querySelector(`[data-n="${game.current}"]`).classList.add("reveal");
+      answer(correct, { picked: n });
     }
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    async function answer(correct) {
+    async function answer(correct, extra = {}) {
       if (!game || busy) return;
       const value = game.current;
-      game.turns.push({ value, correct, atSec: elapsedSec() });
+      const countGame = isCountGame();
+      game.turns.push({ value, correct, atSec: elapsedSec(), ...extra });
       game.streak = correct ? game.streak + 1 : 0;
       if (correct) game.remaining.delete(value);
       const won = game.remaining.size === 0;
@@ -863,7 +1015,7 @@
       busy = true;
       setAnswerButtons(false);
 
-      const el = $("char");
+      const el = countGame ? $("emoji-box") : $("char");
       el.classList.remove("pop", "celebrate", "shake");
       void el.offsetWidth;
       if (correct) {
@@ -879,7 +1031,8 @@
       const thisGame = game;
       const say = () => game === thisGame && speak(value, thisGame.mode);
       const voice = sleep(correct ? 350 : 400).then(say).then(() => sleep(400)).then(say);
-      await Promise.all([sleep(correct ? 900 : 450), Promise.race([voice, sleep(7000)])]);
+      // Count Emoji waits a bit longer so the green / red button can be seen
+      await Promise.all([sleep(countGame ? 1300 : correct ? 900 : 450), Promise.race([voice, sleep(7000)])]);
       if (game !== thisGame) return;
       if (won) return finishGame(true);
       busy = false;
@@ -966,7 +1119,7 @@
       if (reduceMotion) return;
       const dpr = devicePixelRatio;
       if (!origin) {
-        const r = $("char").getBoundingClientRect();
+        const r = (isCountGame() ? $("emoji-box") : $("char")).getBoundingClientRect();
         origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
       }
       const cx = origin.x * dpr;
