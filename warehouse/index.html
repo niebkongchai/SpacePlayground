@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warehouse</title>
+  <meta name="description" content="Warehouse: a browser-only warehouse management system for learning and demos.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="stars"></canvas>
+
+  <div class="shell">
+    <header class="topbar no-print">
+      <a href="../" class="logo" title="Back to SpacePlayground">📦 Warehouse</a>
+      <button type="button" class="btn-ghost menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="sidebar">Menu</button>
+      <form id="global-search" class="global-search" role="search">
+        <input type="search" id="global-q" placeholder="Search SKU, lot, serial, LPN, Notice No., location..." aria-label="Global search">
+      </form>
+      <label class="operator">
+        <span>Operator</span>
+        <input id="operator" placeholder="Your name" autocomplete="off">
+      </label>
+    </header>
+
+    <div class="layout">
+      <nav id="sidebar" class="sidebar no-print" aria-label="Main menu"></nav>
+      <main id="view" tabindex="-1"><p class="muted">Loading...</p></main>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts no-print" aria-live="polite"></div>
+  <dialog id="dialog"></dialog>
+  <div id="chart-tip" class="chart-tip" hidden></div>
+
+  <script src="stars.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
