@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Random Alphabet</title>
-  <meta name="description" content="Random Alphabet — flash letters and numbers for kids, with score tracking.">
+  <title>Kindergarten 1's Games</title>
+  <meta name="description" content="Kindergarten 1's Games — letters, numbers, counting and comparing games for kids, with score tracking.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔤</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -324,6 +324,12 @@
       border: 1px solid transparent;
       box-shadow: 0 0 10px var(--c);
     }
+    .slot.miss {
+      color: #fff;
+      font-weight: 700;
+      background: rgba(255, 92, 108, 0.35);
+      border: 1px solid var(--bad);
+    }
     .slot.just { animation: slot-pop 0.6s ease-out; }
     @keyframes slot-pop {
       0% { transform: scale(0.3); }
@@ -437,7 +443,7 @@
     #game.count-mode .stage, #game.count-mode .answer { display: none; }
     .emoji-box {
       display: grid;
-      grid-template-columns: repeat(5, 1.2em);
+      grid-template-columns: repeat(var(--cols, 5), 1.2em);
       grid-auto-rows: 1.2em;
       place-items: center;
       justify-content: center;
@@ -452,7 +458,8 @@
       line-height: 1.15;
       user-select: none;
     }
-    .emoji-box span { position: relative; cursor: pointer; animation: pop 0.35s ease-out both; }
+    .emoji-box span { position: relative; animation: pop 0.35s ease-out both; }
+    #emoji-box span:not(:empty) { cursor: pointer; }
     /* Tapped while counting: a number badge 1, 2, 3 ... */
     .emoji-box span[data-k]::after {
       content: attr(data-k);
@@ -509,6 +516,57 @@
       .choices button { min-height: 13vh; }
     }
 
+    /* ---------- Greater / Less Than: two sides, tap the one with more (or fewer) ---------- */
+    .compare-stage {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+      padding: 8px 0;
+    }
+    #game.compare-mode .compare-stage { display: flex; }
+    #game.compare-mode .stage, #game.compare-mode .answer { display: none; }
+    .compare-q {
+      text-align: center;
+      font-size: clamp(1.2rem, 4vw, 1.8rem);
+      font-weight: 600;
+    }
+    .sides { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: center; }
+    .sign {
+      min-width: 1ch;
+      text-align: center;
+      font-size: clamp(2.5rem, 9vw, 5rem);
+      font-weight: 700;
+      color: #ffd166;
+      text-shadow: 0 0 20px #ffd166;
+    }
+    .side {
+      padding: 0;
+      border-radius: 24px;
+      background: none;
+      color: var(--text);
+      transition: transform 0.1s;
+    }
+    .side:active { transform: scale(0.97); }
+    .side:disabled { cursor: default; }
+    .side .emoji-box { min-height: min(44vh, 360px); font-size: min(6vw, 8vh, 64px); transition: background 0.2s; }
+    .side.right .emoji-box {
+      border: 3px solid var(--good);
+      background: rgba(46, 204, 113, 0.2);
+      box-shadow: 0 0 30px var(--good);
+    }
+    .side.wrong .emoji-box { border: 3px solid var(--bad); background: rgba(255, 92, 108, 0.2); }
+    /* After a wrong pick, the right side glows green so the kid sees it */
+    .side.reveal .emoji-box { border: 3px solid var(--good); box-shadow: 0 0 24px var(--good); }
+    .side-n { min-height: 1.2em; margin-top: 6px; font-size: clamp(2rem, 7vw, 3.5rem); font-weight: 700; line-height: 1.2; }
+    .side.celebrate { animation: celebrate 0.8s ease-out; }
+    .side.shake { animation: shake 0.4s ease-in-out; }
+    @media (max-width: 640px) {
+      .sides { gap: 6px; }
+      .side .emoji-box { min-height: 36vh; font-size: min(8.5vw, 7vh); padding: 10px; gap: 6px 8px; }
+    }
+
     /* ---------- Result ---------- */
     .result-card {
       max-width: 480px;
@@ -557,7 +615,8 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .char.pop, .char.celebrate, .char.shake, .trophy, .goal.near, .slot.just,
-      .emoji-box span, .emoji-box.celebrate, .emoji-box.shake, .choices button { animation: none; }
+      .emoji-box span, .emoji-box.celebrate, .emoji-box.shake, .choices button,
+      .side.celebrate, .side.shake { animation: none; }
     }
   </style>
 </head>
@@ -569,12 +628,12 @@
       <header>
         <a href="../">← SpacePlayground</a>
         <span>
-          <button class="link-btn" data-go="voice">🎙 Thai Voice</button>
+          <button class="link-btn" data-go="voice">🎙 Winner Voice</button>
           &nbsp;
           <button class="link-btn" data-go="summary">📊 Summary</button>
         </span>
       </header>
-      <h1>🔤 Random Alphabet</h1>
+      <h1>🎒 Kindergarten 1's Games</h1>
       <p class="sub">Pick a mode, then press Start</p>
       <div id="mode-list"></div>
       <div class="actions">
@@ -618,6 +677,14 @@
       <div class="count-stage">
         <div class="emoji-box" id="emoji-box"></div>
         <div class="choices" id="choices"></div>
+      </div>
+      <div class="compare-stage">
+        <div class="compare-q" id="compare-q"></div>
+        <div class="sides">
+          <button class="side" id="side-a"><div class="emoji-box"></div><div class="side-n"></div></button>
+          <div class="sign" id="compare-sign">?</div>
+          <button class="side" id="side-b"><div class="emoji-box"></div><div class="side-n"></div></button>
+        </div>
       </div>
     </section>
 
@@ -695,9 +762,9 @@
         <button class="link-btn" data-go="menu">← Back to modes</button>
         <a href="../">SpacePlayground</a>
       </header>
-      <h1>🎙 Thai Voice</h1>
+      <h1>🎙 Winner Voice</h1>
       <p class="sub">
-        อัดเสียงของคุณเองทีละตัว — เกมจะเล่นเสียงของคุณ 2 ครั้ง (ตัวที่ยังไม่ได้อัดจะไม่มีเสียง)<br>
+        อัดเสียงชมของคุณเอง — เกมจะเล่นเสียงนี้ตอนลูกชนะในโหมดภาษาไทย<br>
         Tap 🎙 to record, tap ■ to stop (stops by itself after 5 s). Saved on this device only.
       </p>
       <p class="voice-msg" id="voice-msg" hidden></p>
@@ -724,20 +791,10 @@
     const LOWER = range(97, 122).map(c => String.fromCharCode(c));
     // The 44 Thai consonants ก – ฮ (ฤ and ฦ are vowels, so they are left out)
     const THAI = [..."กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ"];
-    // Word for each consonant (ก → ไก่), shown as the hint when recording your voice
-    const THAI_WORDS = {
-      "ก": "ไก่", "ข": "ไข่", "ฃ": "ขวด", "ค": "ควาย", "ฅ": "คน", "ฆ": "ระฆัง", "ง": "งู",
-      "จ": "จาน", "ฉ": "ฉิ่ง", "ช": "ช้าง", "ซ": "โซ่", "ฌ": "เฌอ", "ญ": "หญิง",
-      "ฎ": "ชฎา", "ฏ": "ปฏัก", "ฐ": "ฐาน", "ฑ": "มณโฑ", "ฒ": "ผู้เฒ่า", "ณ": "เณร",
-      "ด": "เด็ก", "ต": "เต่า", "ถ": "ถุง", "ท": "ทหาร", "ธ": "ธง", "น": "หนู",
-      "บ": "ใบไม้", "ป": "ปลา", "ผ": "ผึ้ง", "ฝ": "ฝา", "พ": "พาน", "ฟ": "ฟัน", "ภ": "สำเภา", "ม": "ม้า",
-      "ย": "ยักษ์", "ร": "เรือ", "ล": "ลิง", "ว": "แหวน",
-      "ศ": "ศาลา", "ษ": "ฤๅษี", "ส": "เสือ", "ห": "หีบ", "ฬ": "จุฬา", "อ": "อ่าง", "ฮ": "นกฮูก",
-    };
 
-    // Thai levels: 10 letters each, in alphabet order (level 5 = the last 4)
+    // Thai levels grow from ก: 1 = ก – ช, 2 = ก – ด, 3 = ก – พ, 4 = ก – ส, 5 = ก – ฮ (all 44)
     const thaiLevel = (n, icon) => {
-      const pool = THAI.slice((n - 1) * 10, n * 10);
+      const pool = THAI.slice(0, n * 10);
       return { icon, name: `Thai Level ${n}`, range: `${pool[0]} – ${pool[pool.length - 1]}`, pool, thai: true };
     };
 
@@ -747,7 +804,8 @@
       thai3:     thaiLevel(3, "🐰"),
       thai4:     thaiLevel(4, "🦁"),
       thai5:     thaiLevel(5, "🐯"),
-      thai:      { icon: "🐘", name: "Thai (All)",        range: "ก – ฮ",           pool: THAI, thai: true },
+      // Same as level 5 now; kept (off the menu) so older saved games still show their name
+      thai:      { icon: "🐘", name: "Thai (All)",        range: "ก – ฮ",           pool: THAI, thai: true, hidden: true },
       enEasy:    { icon: "🔠", name: "English (Easy)",    range: "A – Z",            pool: UPPER },
       enMedium:  { icon: "🔡", name: "English (Medium)",  range: "a – z",            pool: LOWER },
       enHard:    { icon: "🔤", name: "English (Hard)",    range: "A – Z and a – z",  pool: [...UPPER, ...LOWER] },
@@ -755,6 +813,9 @@
       numMedium: { icon: "🔢", name: "Number (Medium)",   range: "0 – 20",           pool: range(0, 20).map(String) },
       numHard:   { icon: "🚀", name: "Number (Hard)",     range: "0 – 100",          pool: range(0, 100).map(String) },
       numCount:  { icon: "🍎", name: "Count Emoji",       range: "0 – 10 · pick 1 of 4", pool: range(0, 10).map(String), count: true },
+      // Pool = the 10 question numbers of a round
+      numGreater: { icon: "🐊", name: "Greater Than",     range: "1 – 10 · 10 questions", pool: range(1, 10).map(String), compare: "greater" },
+      numLess:    { icon: "🐜", name: "Less Than",        range: "1 – 10 · 10 questions", pool: range(1, 10).map(String), compare: "less" },
     };
 
     const COLORS = ["#ffd166", "#06d6a0", "#4cc9f0", "#f72585", "#b8f2e6", "#ff9f1c", "#c77dff", "#90f1ef", "#ffadad"];
@@ -811,9 +872,9 @@
     let selectedMode = null;
 
     const MODE_GROUPS = [
-      { title: "🐘 ภาษาไทย Thai", keys: ["thai1", "thai2", "thai3", "thai4", "thai5", "thai"] },
+      { title: "🐘 ภาษาไทย Thai", keys: ["thai1", "thai2", "thai3", "thai4", "thai5"] },
       { title: "🔤 English", keys: ["enEasy", "enMedium", "enHard"] },
-      { title: "🔢 Number", keys: ["numEasy", "numMedium", "numHard", "numCount"] },
+      { title: "🔢 Number", keys: ["numEasy", "numMedium", "numHard", "numCount", "numGreater", "numLess"] },
     ];
 
     for (const group of MODE_GROUPS) {
@@ -857,6 +918,7 @@
         remaining: new Set(MODES[selectedMode].pool),
       };
       $("game").classList.toggle("count-mode", !!MODES[selectedMode].count);
+      $("game").classList.toggle("compare-mode", !!MODES[selectedMode].compare);
       buildJourney();
       $("game-mode").textContent = `${MODES[selectedMode].icon} ${MODES[selectedMode].name}`;
       $("ok-count").textContent = "0";
@@ -899,7 +961,7 @@
       updateProgress();
     }
 
-    function updateProgress(justGot) {
+    function updateProgress(justGot, missed) {
       const total = MODES[game.mode].pool.length;
       const done = total - game.remaining.size;
       const pct = (done / total) * 100;
@@ -909,7 +971,7 @@
       $("journey-goal").classList.toggle("near", game.remaining.size === 1);
       const slot = justGot && game.slotEls.get(justGot);
       if (slot) {
-        slot.classList.add("got", "just");
+        slot.classList.add(missed ? "miss" : "got", "just");
         slot.addEventListener("animationend", () => slot.classList.remove("just"), { once: true });
       }
     }
@@ -917,6 +979,11 @@
     function nextChar() {
       const mode = MODES[game.mode];
       const pool = [...game.remaining];
+      // Greater / Less Than: questions go in order 1 to 10
+      if (mode.compare) {
+        game.current = pool[0];
+        return renderCompare();
+      }
       let value;
       do {
         value = pool[Math.floor(Math.random() * pool.length)];
@@ -937,43 +1004,50 @@
     function setAnswerButtons(enabled) {
       $("correct-btn").disabled = !enabled;
       $("incorrect-btn").disabled = !enabled;
-      document.querySelectorAll("#choices button").forEach(b => (b.disabled = !enabled));
+      document.querySelectorAll("#choices button, .side").forEach(b => (b.disabled = !enabled));
     }
 
-    // ===== Count Emoji: count the pictures, then tap the right number =====
+    // ===== Emoji pictures for Count Emoji and Greater / Less Than =====
     const COUNT_EMOJI = ["🍎", "🐶", "🐱", "🦆", "🍓", "⭐", "🚗", "🎈", "🐟", "🍌", "🐸", "🦋", "🐥", "🍩", "🌸", "🐞"];
-    const isCountGame = () => !!(game && MODES[game.mode].count);
     const shuffle = arr => arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
 
-    function renderCount(value) {
-      const n = Number(value);
+    // A different random emoji each turn, so a picture is never tied to a number
+    function randomEmoji() {
       let emoji;
       do emoji = COUNT_EMOJI[Math.floor(Math.random() * COUNT_EMOJI.length)];
       while (emoji === game.emoji);
-      game.emoji = emoji;
+      return (game.emoji = emoji);
+    }
 
-      // A random emoji in random spots of a 5 x 3 grid every turn, so neither the picture
-      // nor the shape gives the number away: the kid has to count
-      const box = $("emoji-box");
+    // Put n pictures in random spots of a grid, so the shape never gives the number away:
+    // the kid has to count. With tapToCount, each tap puts a badge 1, 2, 3 ... and says it.
+    function fillEmojis(box, n, emoji, cols, cells, tapToCount) {
       box.classList.remove("celebrate", "shake");
+      box.style.setProperty("--cols", cols);
       box.innerHTML = "";
-      game.tapped = 0;
-      const spots = new Set(shuffle(range(0, 14)).slice(0, n));
-      let shown = 0;
-      for (let i = 0; i < 15; i++) {
+      const spots = new Set(shuffle(range(0, cells - 1)).slice(0, n));
+      let shown = 0, tapped = 0;
+      for (let i = 0; i < cells; i++) {
         const s = document.createElement("span");
         box.appendChild(s);
         if (!spots.has(i)) continue;
         s.textContent = emoji;
         s.style.animationDelay = shown++ * 70 + "ms";
-        // Tap each picture to count it out loud: 1, 2, 3 ...
+        if (!tapToCount) continue;
         s.addEventListener("click", () => {
           if (!game || busy || s.dataset.k) return;
-          s.dataset.k = ++game.tapped;
-          playNotes([[440 + game.tapped * 45, 0, 0.12]], "sine", 0.12);
-          speakText(String(game.tapped), "en");
+          s.dataset.k = ++tapped;
+          playNotes([[440 + tapped * 45, 0, 0.12]], "sine", 0.12);
+          speakText(String(tapped), "en");
         });
       }
+    }
+
+    // ===== Count Emoji: count the pictures, then tap the right number =====
+    function renderCount(value) {
+      const n = Number(value);
+      game.fxEl = $("emoji-box");
+      fillEmojis($("emoji-box"), n, randomEmoji(), 5, 15, true);
 
       // The right number plus 3 others from the pool, in random order
       const others = shuffle(MODES[game.mode].pool.map(Number).filter(x => x !== n)).slice(0, 3);
@@ -997,25 +1071,71 @@
       answer(correct, { picked: n });
     }
 
+    // ===== Greater / Less Than: tap the side with more (or fewer) pictures =====
+    function renderCompare() {
+      let a, b;
+      do {
+        a = 1 + Math.floor(Math.random() * 10);
+        b = 1 + Math.floor(Math.random() * 10);
+      } while (a === b || (game.pair && game.pair.a === a && game.pair.b === b));
+      game.pair = { a, b };
+      game.fxEl = null;
+      const more = MODES[game.mode].compare === "greater";
+      const emoji = randomEmoji(); // same picture on both sides, so only the amount differs
+      $("compare-q").textContent = more ? "👉 ข้างไหนมากกว่า? Which has MORE?" : "👉 ข้างไหนน้อยกว่า? Which has LESS?";
+      $("compare-sign").textContent = "?";
+      [["side-a", a], ["side-b", b]].forEach(([id, n]) => {
+        const side = $(id);
+        side.className = "side";
+        side.querySelector(".side-n").textContent = "";
+        fillEmojis(side.querySelector(".emoji-box"), n, emoji, 3, 12, false);
+      });
+      speakText(more ? "Which side has more?" : "Which side has less?", "en");
+    }
+
+    function pickSide(id) {
+      if (!game || busy || !MODES[game.mode].compare) return;
+      const { a, b } = game.pair;
+      const more = MODES[game.mode].compare === "greater";
+      const answerId = (more ? a > b : a < b) ? "side-a" : "side-b";
+      const correct = id === answerId;
+      const side = $(id);
+      side.classList.add(correct ? "right" : "wrong");
+      if (!correct) $(answerId).classList.add("reveal");
+      // Show both numbers and the sign, e.g. 7 > 3
+      $("side-a").querySelector(".side-n").textContent = a;
+      $("side-b").querySelector(".side-n").textContent = b;
+      $("compare-sign").textContent = a > b ? ">" : "<";
+      game.fxEl = side;
+      const big = Math.max(a, b), small = Math.min(a, b);
+      game.phrase = more ? `${big} is more than ${small}` : `${small} is less than ${big}`;
+      answer(correct, { value: `${a} vs ${b}`, left: a, right: b, picked: id === "side-a" ? a : b });
+    }
+
+    $("side-a").addEventListener("click", () => pickSide("side-a"));
+    $("side-b").addEventListener("click", () => pickSide("side-b"));
+
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
     async function answer(correct, extra = {}) {
       if (!game || busy) return;
       const value = game.current;
-      const countGame = isCountGame();
+      const mode = MODES[game.mode];
       game.turns.push({ value, correct, atSec: elapsedSec(), ...extra });
       game.streak = correct ? game.streak + 1 : 0;
-      if (correct) game.remaining.delete(value);
+      // A correct answer takes the character out. Greater / Less Than: every answer uses up one of the 10 questions
+      const usedUp = correct || !!mode.compare;
+      if (usedUp) game.remaining.delete(value);
       const won = game.remaining.size === 0;
       const ok = game.turns.filter(t => t.correct).length;
       $("ok-count").textContent = ok;
       $("no-count").textContent = game.turns.length - ok;
-      updateProgress(correct ? value : null);
+      updateProgress(usedUp ? value : null, !correct);
 
       busy = true;
       setAnswerButtons(false);
 
-      const el = countGame ? $("emoji-box") : $("char");
+      const el = game.fxEl || $("char");
       el.classList.remove("pop", "celebrate", "shake");
       void el.offsetWidth;
       if (correct) {
@@ -1027,18 +1147,21 @@
         playOops();
       }
 
-      // Read the letter aloud twice (easier for kids to catch), then show the next one
+      // Read the answer aloud twice (easier for kids to catch), then show the next one.
+      // Greater / Less Than says one sentence once, like "7 is more than 3".
       const thisGame = game;
-      const say = () => game === thisGame && speak(value, thisGame.mode);
-      const voice = sleep(correct ? 350 : 400).then(say).then(() => sleep(400)).then(say);
-      // Count Emoji waits a bit longer so the green / red button can be seen
-      await Promise.all([sleep(countGame ? 1300 : correct ? 900 : 450), Promise.race([voice, sleep(7000)])]);
+      const phrase = mode.compare ? game.phrase : null;
+      const say = () => game === thisGame && (phrase ? speakText(phrase, "en") : speak(value, thisGame.mode));
+      const voice = sleep(correct ? 350 : 400).then(say).then(() => !phrase && sleep(400).then(say));
+      // Picture games wait a bit longer so the green / red answer can be seen
+      const picture = mode.count || mode.compare;
+      await Promise.all([sleep(picture ? 1300 : correct ? 900 : 450), Promise.race([voice, sleep(7000)])]);
       if (game !== thisGame) return;
       if (won) return finishGame(true);
       busy = false;
       setAnswerButtons(true);
       nextChar();
-      if (correct && game.remaining.size === 1) showCheer("🏁 อีกตัวเดียว! Last one!");
+      if (usedUp && game.remaining.size === 1) showCheer(mode.compare ? "🏁 ข้อสุดท้าย! Last one!" : "🏁 อีกตัวเดียว! Last one!");
     }
 
     // Every character answered correctly: trophy, fireworks show, fanfare and voice
@@ -1119,7 +1242,7 @@
       if (reduceMotion) return;
       const dpr = devicePixelRatio;
       if (!origin) {
-        const r = (isCountGame() ? $("emoji-box") : $("char")).getBoundingClientRect();
+        const r = ((game && game.fxEl) || $("char")).getBoundingClientRect();
         origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
       }
       const cx = origin.x * dpr;
@@ -1327,8 +1450,8 @@
     }
 
     function speak(value, modeKey) {
-      // Thai: only your own recordings, no computer voice
-      if (MODES[modeKey].thai) return playRecording(value);
+      // Thai: no voice for the letters (effect sounds still play)
+      if (MODES[modeKey].thai) return Promise.resolve();
       if (/^[a-z]$/.test(value)) return speakText(`small ${value.toUpperCase()}`, "en");
       if (/^[A-Z]$/.test(value)) return speakText(modeKey === "enHard" ? `big ${value}` : value, "en");
       return speakText(value, "en");
@@ -1383,10 +1506,8 @@
 
     // ===== Your own recorded Thai voice (stored in IndexedDB on this device) =====
     const WIN_KEY = "__win";
-    const VOICE_ITEMS = [
-      ...THAI.map(c => ({ key: c, label: c, hint: `${c} ${THAI_WORDS[c]}` })),
-      { key: WIN_KEY, label: "🏆", hint: "เก่งมาก! หนูชนะแล้ว!" },
-    ];
+    // Thai letters have no sound now; only the winner cheer is recorded
+    const VOICE_ITEMS = [{ key: WIN_KEY, label: "🏆", hint: "เก่งมาก! หนูชนะแล้ว!" }];
     const voiceCache = new Map(); // key -> audio Blob
     let dbPromise = null;
 
@@ -1586,7 +1707,7 @@
       const games = loadData().games;
 
       // By mode
-      const rows = Object.entries(MODES).map(([key, m]) => {
+      const rows = Object.entries(MODES).filter(([key, m]) => !m.hidden || games.some(x => x.mode === key)).map(([key, m]) => {
         const g = games.filter(x => x.mode === key);
         const ok = g.reduce((s, x) => s + x.correct, 0);
         const no = g.reduce((s, x) => s + x.incorrect, 0);
