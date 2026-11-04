@@ -92,10 +92,6 @@
       transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
     }
     .mode:hover { transform: translateY(-4px); border-color: var(--accent); }
-    .mode.selected {
-      border-color: var(--accent-2);
-      box-shadow: 0 0 28px rgba(199, 125, 255, 0.35);
-    }
     .mode .icon { font-size: 2rem; }
     .mode .name { font-size: 1.15rem; font-weight: 600; margin-top: 8px; }
     .mode .range { color: var(--muted); font-family: "Sarabun", sans-serif; margin-top: 4px; }
@@ -634,10 +630,9 @@
         </span>
       </header>
       <h1>🎒 Kindergarten 1's Games</h1>
-      <p class="sub">Pick a mode, then press Start</p>
+      <p class="sub">Tap a game to play</p>
       <div id="mode-list"></div>
       <div class="actions">
-        <button class="btn" id="start-btn" disabled>▶ Start</button>
         <button class="btn ghost" data-go="summary">📊 Summary Result</button>
       </div>
     </section>
@@ -893,14 +888,10 @@
       btn.innerHTML = `<div class="icon">${m.icon}</div><div class="name">${m.name}</div><div class="range">${m.range}</div>`;
       btn.addEventListener("click", () => {
         selectedMode = key;
-        document.querySelectorAll(".mode").forEach(el => el.classList.toggle("selected", el === btn));
-        $("start-btn").disabled = false;
+        startGame();
       });
-      btn.addEventListener("dblclick", startGame);
       grid.appendChild(btn);
     }
-
-    $("start-btn").addEventListener("click", startGame);
 
     // ===== Game =====
     let game = null;
